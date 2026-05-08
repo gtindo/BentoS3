@@ -1,7 +1,7 @@
 import type { BentoRequest } from "./types.js";
 
 const ADMIN_PATH_PREFIX = "/admin";
-const DASHBOARD_PATH_PREFIX = "/dashboard";
+const DASHBOARD_PATH_PREFIX = "/ui";
 const ROOT_PATH = "/";
 
 export type RouteKind = "admin" | "dashboard" | "s3";

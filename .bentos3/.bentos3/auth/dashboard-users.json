@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "users": [
+    {
+      "id": "user_3c76675e-2699-42e7-9a09-ff7472a830a4",
+      "username": "gtindo",
+      "passwordHash": "2Ix5u6z55j42VhOZQVF2Tu8y9qowN5hG05mXGJf6wk4401hrQUzzvyPKbyZJTbGPsUCCzEduO/4gHCYPMHBpkQ==",
+      "passwordSalt": "9bWcWQmO5kW7YvUOXKQ9Lw==",
+      "passwordAlgorithm": "scrypt",
+      "passwordKeyLength": 64,
+      "passwordCost": {
+        "N": 16384,
+        "r": 8,
+        "p": 1
+      },
+      "createdAt": "2026-05-08T13:22:33.774Z"
+    }
+  ]
+}

@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 import { BentoS3 } from "../src/index.js";
 
 test("returns an S3 list buckets XML response", async ({ request }) => {
-  const server = new BentoS3({ port: 0 });
+  const server = new BentoS3({ auth: { enabled: false }, port: 0 });
   await server.start();
 
   try {

@@ -10,7 +10,7 @@ describe("router", () => {
   });
 
   it("classifies dashboard routes", () => {
-    expect(classifyBentoRoute(createRequest("/dashboard"))).toEqual({ kind: "dashboard" });
+    expect(classifyBentoRoute(createRequest("/ui"))).toEqual({ kind: "dashboard" });
   });
 
   it("parses S3 bucket and key paths", () => {
