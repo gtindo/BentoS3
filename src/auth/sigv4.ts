@@ -150,9 +150,11 @@ export function createCanonicalRequest(
   signedHeaders: string[],
   payloadHash: string,
 ): string {
+  const canonicalPath = request.canonicalPath ?? request.path;
+
   return [
     request.method.toUpperCase(),
-    createCanonicalUri(request.path),
+    createCanonicalUri(canonicalPath),
     createCanonicalQueryString(request.query),
     canonicalHeaders,
     signedHeaders.join(";"),

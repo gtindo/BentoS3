@@ -82,14 +82,81 @@ await client.send(
 
 ```ts
 import express from "express";
-import { BentoS3Core } from "bentos3/core";
-import { expressAdapter } from "bentos3/adapters/express";
+import { BentoS3Core } from "bento-s3";
+import { expressAdapter } from "bento-s3/adapters/express";
 
 const app = express();
-const bento = new BentoS3Core({ rootDir: ".bentos3-test" });
+const bento = new BentoS3Core();
 
 app.use("/s3", expressAdapter(bento));
 ```
+
+The AWS SDK endpoint for this mounted route should include the mount path:
+
+```ts
+new S3Client({
+  endpoint: "http://127.0.0.1:3000/s3",
+  forcePathStyle: true,
+  region: "us-east-1",
+  credentials,
+});
+```
+
+### Framework Adapters
+
+Express:
+
+```ts
+import { expressAdapter } from "bento-s3/adapters/express";
+
+app.use("/s3", expressAdapter(bento));
+```
+
+Koa:
+
+```ts
+import { koaAdapter } from "bento-s3/adapters/koa";
+
+app.use(koaAdapter(bento, { basePath: "/s3" }));
+```
+
+Fastify:
+
+```ts
+import { fastifyBentoS3 } from "bento-s3/adapters/fastify";
+
+await app.register(fastifyBentoS3, {
+  prefix: "/s3",
+  basePath: "/s3",
+  bento,
+});
+```
+
+Fetch:
+
+```ts
+import { handleFetchRequest } from "bento-s3/adapters/fetch";
+
+const response = await handleFetchRequest(bento, request, { basePath: "/s3" });
+```
+
+### Body Parser Ordering
+
+BentoS3 adapters must receive the raw request stream. Mount BentoS3 before body parsers for the S3 route:
+
+```ts
+app.use("/s3", expressAdapter(bento));
+app.use(express.json());
+```
+
+Avoid this ordering for S3 requests:
+
+```ts
+app.use(express.json());
+app.use("/s3", expressAdapter(bento));
+```
+
+The same rule applies to Koa middleware that reads `ctx.req`. Fastify registration installs a raw content-type parser for the plugin scope so S3 object uploads are not pre-parsed before BentoS3 receives them.
 
 ## Core Design
 
@@ -102,6 +169,7 @@ export interface BentoRequest {
   method: string;
   url: string;
   path: string;
+  canonicalPath?: string;
   query: URLSearchParams;
   headers: Record<string, string | string[] | undefined>;
   body?: AsyncIterable<Uint8Array> | NodeJS.ReadableStream;

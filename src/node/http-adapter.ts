@@ -9,6 +9,12 @@ const HTTP_PROTOCOL = "http";
 const METHOD_GET = "GET";
 const REQUEST_URL_FALLBACK = "/";
 
+export interface NodeRequestAdapterOptions {
+  url?: string;
+  path?: string;
+  canonicalPath?: string;
+}
+
 export async function handleNodeHttpRequest(
   handler: BentoHandler,
   request: IncomingMessage,
@@ -20,19 +26,24 @@ export async function handleNodeHttpRequest(
   await writeNodeHttpResponse(response, bentoResponse);
 }
 
-export function createBentoRequestFromNodeRequest(request: IncomingMessage): BentoRequest {
+export function createBentoRequestFromNodeRequest(
+  request: IncomingMessage,
+  options: NodeRequestAdapterOptions = {},
+): BentoRequest {
   const host = request.headers[HEADER_HOST] ?? DEFAULT_HOST;
-  const rawUrl = request.url ?? REQUEST_URL_FALLBACK;
+  const rawUrl = options.url ?? request.url ?? REQUEST_URL_FALLBACK;
   const url = new URL(rawUrl, `${HTTP_PROTOCOL}://${host}`);
   const remoteAddress = request.socket.remoteAddress;
+  const canonicalPath = options.canonicalPath;
 
   return {
     method: request.method ?? METHOD_GET,
     url: rawUrl,
-    path: url.pathname,
+    path: options.path ?? url.pathname,
     query: url.searchParams,
     headers: request.headers,
     body: request,
+    ...(canonicalPath ? { canonicalPath } : {}),
     ...(remoteAddress ? { remoteAddress } : {}),
   };
 }

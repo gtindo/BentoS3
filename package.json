@@ -9,6 +9,22 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./adapters/express": {
+      "types": "./dist/adapters/express.d.ts",
+      "import": "./dist/adapters/express.js"
+    },
+    "./adapters/fastify": {
+      "types": "./dist/adapters/fastify.d.ts",
+      "import": "./dist/adapters/fastify.js"
+    },
+    "./adapters/fetch": {
+      "types": "./dist/adapters/fetch.d.ts",
+      "import": "./dist/adapters/fetch.js"
+    },
+    "./adapters/koa": {
+      "types": "./dist/adapters/koa.d.ts",
+      "import": "./dist/adapters/koa.js"
     }
   },
   "files": [
@@ -26,13 +42,17 @@
   "engines": {
     "node": ">=24.15.0 <25"
   },
-  "dependencies": {},
   "devDependencies": {
     "@aws-sdk/client-s3": "latest",
     "@eslint/js": "latest",
     "@playwright/test": "latest",
+    "@types/express": "^5.0.6",
+    "@types/koa": "^3.0.2",
     "@types/node": "latest",
     "eslint": "latest",
+    "express": "^5.2.1",
+    "fastify": "^5.8.5",
+    "koa": "^3.2.0",
     "prettier": "latest",
     "typescript": "latest",
     "typescript-eslint": "latest",

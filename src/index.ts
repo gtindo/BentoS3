@@ -1,4 +1,8 @@
 export { BentoS3Core, type BentoS3CoreOptions } from "./core/bento-s3-core.js";
+export { expressAdapter, type ExpressBentoS3Options } from "./adapters/express.js";
+export { fastifyBentoS3, type FastifyBentoS3Options } from "./adapters/fastify.js";
+export { handleFetchRequest, type FetchBentoS3Options } from "./adapters/fetch.js";
+export { koaAdapter, type KoaBentoS3Options } from "./adapters/koa.js";
 export { JsonAuthStore } from "./auth/json-auth-store.js";
 export { MemoryAuthStore } from "./auth/memory-auth-store.js";
 export type { AuthCredential, AuthStore, CreateCredentialInput } from "./auth/types.js";

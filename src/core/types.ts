@@ -2,6 +2,7 @@ export interface BentoRequest {
   method: string;
   url: string;
   path: string;
+  canonicalPath?: string;
   query: URLSearchParams;
   headers: Record<string, string | string[] | undefined>;
   body?: AsyncIterable<Uint8Array> | NodeJS.ReadableStream;
