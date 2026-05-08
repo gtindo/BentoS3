@@ -78,7 +78,7 @@ jobs:
       - name: Read package version
         id: package
         run: |
-          VERSION=$(node -e "console.log(require('./package.json').version)")
+          VERSION=$(jq -r '.version' package.json)
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Lint

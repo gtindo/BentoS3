@@ -2,6 +2,8 @@
 
 BentoS3 is a lightweight, S3-compatible API server for local development, automated testing, and CI environments.
 
+> **Status:** BentoS3 is under active development and is not considered stable yet. APIs and behavior may change between releases until the project reaches a stable version.
+
 It is designed as both:
 
 - A standalone CLI-bootable S3-compatible server.
