@@ -3,6 +3,24 @@
   "version": "0.1.0",
   "description": "A lightweight S3-compatible API server for local development, automated testing, and CI environments.",
   "type": "module",
+  "author": "gtindo",
+  "license": "MIT",
+  "homepage": "https://github.com/gtindo/bento-s3#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gtindo/bento-s3.git"
+  },
+  "bugs": {
+    "url": "https://github.com/gtindo/bento-s3/issues"
+  },
+  "keywords": [
+    "s3",
+    "mock",
+    "test",
+    "local",
+    "storage",
+    "aws"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -39,11 +57,14 @@
     }
   },
   "files": [
-    "dist",
-    "examples"
+    "dist"
   ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
+    "build": "npm run clean && tsc -p tsconfig.build.json",
     "start": "npm run build && node dist/cli/index.js serve",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -53,7 +74,23 @@
     "format:check": "prettier . --check"
   },
   "engines": {
-    "node": ">=24.15.0 <25"
+    "node": ">=20.0.0"
+  },
+  "peerDependencies": {
+    "express": "^5.0.0",
+    "fastify": "^5.0.0",
+    "koa": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    },
+    "fastify": {
+      "optional": true
+    },
+    "koa": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@aws-sdk/client-s3": "latest",

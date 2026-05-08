@@ -9,6 +9,20 @@ It is designed as both:
 
 BentoS3 aims to provide the most commonly used S3 behavior without the operational weight of MinIO, LocalStack, or a full object-storage server.
 
+## Installation
+
+Install BentoS3 from npm:
+
+```bash
+npm install bento-s3
+```
+
+Then import it in your project:
+
+```ts
+import { BentoS3, MemoryAuthStore } from "bento-s3";
+```
+
 ## Goals
 
 - Support a practical subset of the S3 REST API.

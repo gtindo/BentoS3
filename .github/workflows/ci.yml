@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      npm_dist_tag:
+        description: npm dist-tag to publish with, for example latest, alpha, beta, rc, or rd.
+        required: true
+        default: latest
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  publish:
+    name: Publish to npm
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Validate npm dist-tag
+        run: |
+          if ! [[ "${NPM_DIST_TAG}" =~ ^[a-zA-Z0-9][a-zA-Z0-9._-]*$ ]]; then
+            echo "Invalid npm dist-tag: ${NPM_DIST_TAG}"
+            exit 1
+          fi
+        env:
+          NPM_DIST_TAG: ${{ inputs.npm_dist_tag }}
+
+      - name: Read package version
+        id: package
+        run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish package
+        run: npm publish --tag "${NPM_DIST_TAG}"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_DIST_TAG: ${{ inputs.npm_dist_tag }}
+
+      - name: Create git version tag
+        run: |
+          VERSION_TAG="v${PACKAGE_VERSION}"
+
+          if git rev-parse "${VERSION_TAG}" >/dev/null 2>&1; then
+            echo "Git tag ${VERSION_TAG} already exists."
+            exit 0
+          fi
+
+          git tag "${VERSION_TAG}"
+          git push origin "${VERSION_TAG}"
+        env:
+          PACKAGE_VERSION: ${{ steps.package.outputs.version }}

@@ -23,4 +23,8 @@ export default tseslint.config(
     files: ["*.config.js"],
     extends: [tseslint.configs.disableTypeChecked],
   },
+  {
+    files: ["e2e/package-exports.spec.ts"],
+    extends: [tseslint.configs.disableTypeChecked],
+  },
 );

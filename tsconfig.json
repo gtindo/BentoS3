@@ -5,6 +5,15 @@
     "types": ["node"],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
+    "paths": {
+      "bento-s3": ["./src/index.ts"],
+      "bento-s3/core": ["./src/core/index.ts"],
+      "bento-s3/adapters/node-http": ["./src/adapters/node-http.ts"],
+      "bento-s3/adapters/express": ["./src/adapters/express.ts"],
+      "bento-s3/adapters/fastify": ["./src/adapters/fastify.ts"],
+      "bento-s3/adapters/fetch": ["./src/adapters/fetch.ts"],
+      "bento-s3/adapters/koa": ["./src/adapters/koa.ts"]
+    },
     "noEmit": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
