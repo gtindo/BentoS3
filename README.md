@@ -24,27 +24,25 @@ BentoS3 aims to provide the most commonly used S3 behavior without the operation
 - Production-grade object storage.
 - Full S3 feature parity.
 - Distributed storage.
-- Replication, lifecycle policies, object lock, ACLs, or bucket policies in the MVP.
+- Replication, lifecycle policies, object lock, ACLs, or bucket policies.
 - Mandatory dependency on a specific HTTP framework.
 
-## Planned Usage
+## Usage
 
 ### Managed Test Server
 
 ```ts
-import { BentoS3 } from "bentos3";
+import { BentoS3, MemoryAuthStore } from "bento-s3";
+
+const authStore = new MemoryAuthStore();
+await authStore.createCredential({
+  accessKeyId: "test",
+  secretAccessKey: "test-secret",
+});
 
 const s3 = new BentoS3({
   port: 0,
-  auth: {
-    mode: "memory",
-    credentials: [
-      {
-        accessKeyId: "test",
-        secretAccessKey: "test-secret",
-      },
-    ],
-  },
+  authStore,
 });
 
 await s3.start();
@@ -78,11 +76,46 @@ await client.send(
 );
 ```
 
+### CLI
+
+Start a local S3-compatible server with the dashboard enabled:
+
+```bash
+bentos3 serve
+bentos3 serve --host 127.0.0.1 --port 9000 --root-dir ./.bentos3
+```
+
+Create a dashboard user:
+
+```bash
+bentos3 user create admin
+bentos3 user create admin --password mypassword
+```
+
+List dashboard users and buckets:
+
+```bash
+bentos3 user list
+bentos3 bucket list
+```
+
+Default server behavior:
+
+| Option       | Default      |
+| ------------ | ------------ |
+| `--host`     | `127.0.0.1`  |
+| `--port`     | `9000`       |
+| `--root-dir` | `./.bentos3` |
+| Dashboard    | Enabled      |
+| Auth store   | JSON-backed  |
+
+On first start, `bentos3 serve` bootstraps a default access key and prints the credentials.
+
 ### Framework-Embedded Server
 
 ```ts
 import express from "express";
-import { BentoS3Core } from "bento-s3";
+import { BentoS3Core } from "bento-s3/core";
 import { expressAdapter } from "bento-s3/adapters/express";
 
 const app = express();
@@ -127,7 +160,6 @@ import { fastifyBentoS3 } from "bento-s3/adapters/fastify";
 
 await app.register(fastifyBentoS3, {
   prefix: "/s3",
-  basePath: "/s3",
   bento,
 });
 ```
@@ -185,9 +217,9 @@ export interface BentoResponse {
 
 Adapters translate framework-specific request and response types into this contract.
 
-## S3 Compatibility Target
+## S3 Compatibility
 
-The first compatibility target is the official AWS SDK for JavaScript v3 using path-style addressing:
+The compatibility target is the official AWS SDK for JavaScript v3 using path-style addressing:
 
 ```ts
 new S3Client({
@@ -198,7 +230,7 @@ new S3Client({
 });
 ```
 
-Initial S3 operations:
+Supported S3 operations:
 
 - `ListBuckets`
 - `CreateBucket`
@@ -214,7 +246,7 @@ Initial S3 operations:
 
 ## Storage
 
-BentoS3 uses the local filesystem as its primary persistence layer.
+BentoS3 uses the local filesystem as its primary persistence layer. Storage drivers write a `.bentos3/` data directory inside the configured `rootDir`.
 
 Example layout:
 
@@ -229,44 +261,80 @@ Example layout:
     credentials.json
     dashboard-users.json
     sessions.json
+  tmp/
 ```
 
 Buckets map to directories. Objects map to files. Object metadata is stored in JSON sidecar files.
 
+## Auth
+
+BentoS3 supports two credential store implementations:
+
+- `MemoryAuthStore` - in-memory, ideal for tests.
+- `JsonAuthStore` - JSON-backed, persists credentials to disk for local development.
+
+SigV4 authentication is enabled by default. Configure the auth store through `BentoS3` or `BentoS3Core` options:
+
+```ts
+import { BentoS3, JsonAuthStore } from "bento-s3";
+
+const rootDir = "./.bentos3";
+
+const s3 = new BentoS3({
+  port: 9000,
+  rootDir,
+  authStore: new JsonAuthStore({ rootDir }),
+});
+```
+
+Auth can be disabled for testing:
+
+```ts
+import { BentoS3Core } from "bento-s3/core";
+
+const bento = new BentoS3Core({
+  auth: { enabled: false },
+});
+```
+
 ## Dashboard
 
-The dashboard is planned for phase 4 and will be server-side rendered.
+The dashboard is a server-rendered UI for managing buckets, objects, and access keys. It is enabled by default when running `bentos3 serve` or creating a `BentoS3` instance without `dashboard.enabled: false`.
 
-Technology choices:
+Access the dashboard at `http://127.0.0.1:9000/ui`.
 
-- EJS templates.
-- Tailwind CSS compiled at build time.
-- Turbo for navigation and form behavior.
-- JSON files for dashboard user/session storage.
-- Node `crypto.scrypt` for password hashing.
+### Dashboard Features
 
-No React, Next.js, or client-side SPA framework is planned for the dashboard.
+- Browse and manage buckets and objects.
+- Upload and download objects from the browser.
+- Create and revoke S3 access keys.
+- Session-based authentication with `HttpOnly` cookies.
 
-## Testing Philosophy
+### Dashboard Users
 
-Integration tests are central to BentoS3.
+Create a dashboard user via the CLI:
 
-The project must prove that:
+```bash
+bentos3 user create admin --password mypassword
+```
 
-- The official AWS SDK can perform S3 operations against BentoS3.
-- Filesystem operations actually create, read, update, and delete files on disk.
-- Metadata sidecars are written correctly.
-- Restarting BentoS3 with the same root directory preserves data.
-- Each framework adapter preserves raw path, query, headers, and request body streams correctly.
+Dashboard passwords are hashed with Node `crypto.scrypt`. Sessions store token hashes, not raw tokens.
 
-## Documentation
+### Technology
 
-- `ARCHITECTURE.md` describes the technical architecture.
-- `work-plans/phase-1-core.md` describes the framework-neutral core and test harness.
-- `work-plans/phase-2-storage-auth.md` describes filesystem, auth, and SigV4 work.
-- `work-plans/phase-3-adapters.md` describes framework adapter work.
-- `work-plans/phase-4-dashboard-cli-packaging.md` describes dashboard, CLI, and packaging work.
+- Inline HTML rendering.
+- Inline CSS styled with a compact dashboard design system.
+- Turbo-compatible static script placeholder.
+- JSON files for user and session storage.
 
-## Status
+## Package Exports
 
-BentoS3 is currently in blueprint/planning stage.
+| Export path                   | Contents                                                                |
+| ----------------------------- | ----------------------------------------------------------------------- |
+| `bento-s3`                    | `BentoS3`, `BentoS3Core`, adapters, auth stores, storage drivers, types |
+| `bento-s3/core`               | `BentoS3Core`, `BentoS3CoreOptions`                                     |
+| `bento-s3/adapters/node-http` | Node HTTP adapter utilities                                             |
+| `bento-s3/adapters/express`   | `expressAdapter`                                                        |
+| `bento-s3/adapters/koa`       | `koaAdapter`                                                            |
+| `bento-s3/adapters/fastify`   | `fastifyBentoS3`                                                        |
+| `bento-s3/adapters/fetch`     | `handleFetchRequest`                                                    |
