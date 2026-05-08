@@ -2,6 +2,7 @@ import { createServer, type Server } from "node:http";
 import { BentoS3Core, type BentoS3CoreOptions } from "../core/bento-s3-core.js";
 import type { BentoHandler } from "../core/types.js";
 import { handleNodeHttpRequest } from "./http-adapter.js";
+import { JsonAuthStore } from "../auth/json-auth-store.js";
 import { FileSystemStorageDriver } from "../storage/file-system-storage-driver.js";
 
 const DEFAULT_HOST = "127.0.0.1";
@@ -87,13 +88,14 @@ export class BentoS3 {
 }
 
 function createCoreOptions(options: BentoS3Options): BentoS3CoreOptions {
-  if (options.storage || !options.rootDir) {
+  if (!options.rootDir) {
     return options;
   }
 
   return {
     ...options,
-    storage: new FileSystemStorageDriver({ rootDir: options.rootDir }),
+    storage: options.storage ?? new FileSystemStorageDriver({ rootDir: options.rootDir }),
+    authStore: options.authStore ?? new JsonAuthStore({ rootDir: options.rootDir }),
   };
 }
 

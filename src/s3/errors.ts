@@ -5,14 +5,17 @@ const CONTENT_TYPE_XML = "application/xml";
 const REQUEST_ID = "0000000000000000";
 
 export type S3ErrorCode =
+  | "AccessDenied"
   | "BucketAlreadyExists"
   | "BucketNotEmpty"
   | "InvalidArgument"
+  | "InvalidAccessKeyId"
   | "InvalidRequest"
   | "MethodNotAllowed"
   | "NoSuchBucket"
   | "NoSuchKey"
-  | "NotImplemented";
+  | "NotImplemented"
+  | "SignatureDoesNotMatch";
 
 export interface S3ErrorDefinition {
   code: S3ErrorCode;

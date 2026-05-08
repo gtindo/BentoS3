@@ -16,7 +16,7 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { BentoS3 } from "../../index.js";
+import { BentoS3, JsonAuthStore, MemoryAuthStore, type AuthStore } from "../../index.js";
 
 const TEST_REGION = "us-east-1";
 const TEST_ACCESS_KEY_ID = "test";
@@ -31,7 +31,7 @@ describe("BentoS3 managed server", () => {
   });
 
   it("starts on a dynamic port", async () => {
-    server = new BentoS3({ port: 0 });
+    server = new BentoS3({ port: 0, authStore: createMemoryAuthStore() });
 
     await server.start();
 
@@ -40,7 +40,7 @@ describe("BentoS3 managed server", () => {
   });
 
   it("supports initial AWS SDK bucket operations", async () => {
-    server = new BentoS3({ port: 0 });
+    server = new BentoS3({ port: 0, authStore: createMemoryAuthStore() });
     await server.start();
 
     const client = createS3Client(server);
@@ -54,6 +54,7 @@ describe("BentoS3 managed server", () => {
 
   it("persists AWS SDK bucket and object operations to the filesystem", async () => {
     const rootDir = await createTempRoot();
+    await createJsonAuthStore(rootDir);
     server = new BentoS3({ port: 0, rootDir });
     await server.start();
 
@@ -96,6 +97,7 @@ describe("BentoS3 managed server", () => {
 
   it("loads persisted objects after server restart", async () => {
     const rootDir = await createTempRoot();
+    await createJsonAuthStore(rootDir);
     server = new BentoS3({ port: 0, rootDir });
     await server.start();
 
@@ -125,6 +127,7 @@ describe("BentoS3 managed server", () => {
 
   it("supports copy, bulk delete, and non-empty bucket errors", async () => {
     const rootDir = await createTempRoot();
+    await createJsonAuthStore(rootDir);
     server = new BentoS3({ port: 0, rootDir });
     await server.start();
 
@@ -161,9 +164,61 @@ describe("BentoS3 managed server", () => {
     );
     await client.send(new DeleteBucketCommand({ Bucket: "photos" }));
   });
+
+  it("rejects invalid AWS SDK credentials", async () => {
+    server = new BentoS3({ port: 0, authStore: createMemoryAuthStore() });
+    await server.start();
+
+    const client = createS3Client(server, {
+      accessKeyId: "wrong",
+      secretAccessKey: TEST_SECRET_ACCESS_KEY,
+    });
+
+    await expect(client.send(new ListBucketsCommand({}))).rejects.toMatchObject({
+      name: "InvalidAccessKeyId",
+    });
+  });
+
+  it("rejects invalid AWS SDK secret keys", async () => {
+    server = new BentoS3({ port: 0, authStore: createMemoryAuthStore() });
+    await server.start();
+
+    const client = createS3Client(server, {
+      accessKeyId: TEST_ACCESS_KEY_ID,
+      secretAccessKey: "wrong",
+    });
+
+    await expect(client.send(new ListBucketsCommand({}))).rejects.toMatchObject({
+      name: "SignatureDoesNotMatch",
+    });
+  });
+
+  it("rejects disabled AWS SDK credentials", async () => {
+    const authStore = createMemoryAuthStore();
+    await authStore.disableCredential(TEST_ACCESS_KEY_ID);
+    server = new BentoS3({ port: 0, authStore });
+    await server.start();
+
+    const client = createS3Client(server);
+
+    await expect(client.send(new ListBucketsCommand({}))).rejects.toMatchObject({
+      name: "AccessDenied",
+    });
+  });
 });
 
-function createS3Client(server: BentoS3): S3Client {
+interface ClientCredentials {
+  accessKeyId: string;
+  secretAccessKey: string;
+}
+
+function createS3Client(
+  server: BentoS3,
+  credentials: ClientCredentials = {
+    accessKeyId: TEST_ACCESS_KEY_ID,
+    secretAccessKey: TEST_SECRET_ACCESS_KEY,
+  },
+): S3Client {
   if (!server.endpoint) {
     throw new Error("Server must be started before creating an S3 client.");
   }
@@ -172,11 +227,29 @@ function createS3Client(server: BentoS3): S3Client {
     region: TEST_REGION,
     endpoint: server.endpoint,
     forcePathStyle: true,
-    credentials: {
+    credentials,
+  });
+}
+
+function createMemoryAuthStore(): MemoryAuthStore {
+  return new MemoryAuthStore([
+    {
       accessKeyId: TEST_ACCESS_KEY_ID,
       secretAccessKey: TEST_SECRET_ACCESS_KEY,
+      enabled: true,
+      createdAt: new Date(),
     },
+  ]);
+}
+
+async function createJsonAuthStore(rootDir: string): Promise<AuthStore> {
+  const authStore = new JsonAuthStore({ rootDir });
+  await authStore.createCredential({
+    accessKeyId: TEST_ACCESS_KEY_ID,
+    secretAccessKey: TEST_SECRET_ACCESS_KEY,
   });
+
+  return authStore;
 }
 
 async function createTempRoot(): Promise<string> {
