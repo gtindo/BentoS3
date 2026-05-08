@@ -6,8 +6,12 @@ const REQUEST_ID = "0000000000000000";
 
 export type S3ErrorCode =
   | "BucketAlreadyExists"
+  | "BucketNotEmpty"
+  | "InvalidArgument"
+  | "InvalidRequest"
   | "MethodNotAllowed"
   | "NoSuchBucket"
+  | "NoSuchKey"
   | "NotImplemented";
 
 export interface S3ErrorDefinition {

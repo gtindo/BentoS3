@@ -24,7 +24,7 @@ describe("BentoS3Core", () => {
 
   it("returns S3 XML errors for unsupported operations", async () => {
     const core = new BentoS3Core();
-    const response = await core.handle(createRequest("DELETE", "/photos/cat.jpg"));
+    const response = await core.handle(createRequest("PATCH", "/photos/cat.jpg"));
 
     expect(response.statusCode).toBe(405);
     expect(response.body).toContain("MethodNotAllowed");
