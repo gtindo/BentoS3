@@ -2,4 +2,5 @@ work-plans
 node_modules
 dist
 test-results
+.bentos3
 NOTES.md
