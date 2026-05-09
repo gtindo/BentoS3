@@ -3,6 +3,10 @@ import type { BentoRequest } from "./types.js";
 const ADMIN_PATH_PREFIX = "/admin";
 const DASHBOARD_PATH_PREFIX = "/ui";
 const ROOT_PATH = "/";
+const RESERVED_ROUTE_DEFINITIONS: ReservedRouteDefinition[] = [
+  { kind: "admin", pathPrefix: ADMIN_PATH_PREFIX },
+  { kind: "dashboard", pathPrefix: DASHBOARD_PATH_PREFIX },
+];
 
 export type RouteKind = "admin" | "dashboard" | "s3";
 
@@ -22,16 +26,18 @@ export interface DashboardRoute {
 
 export type BentoRoute = AdminRoute | DashboardRoute | S3Route;
 
-export function classifyBentoRoute(request: BentoRequest): BentoRoute {
-  if (request.path === ADMIN_PATH_PREFIX || request.path.startsWith(`${ADMIN_PATH_PREFIX}/`)) {
-    return { kind: "admin" };
-  }
+interface ReservedRouteDefinition {
+  kind: "admin" | "dashboard";
+  pathPrefix: string;
+}
 
-  if (
-    request.path === DASHBOARD_PATH_PREFIX ||
-    request.path.startsWith(`${DASHBOARD_PATH_PREFIX}/`)
-  ) {
-    return { kind: "dashboard" };
+export function classifyBentoRoute(request: BentoRequest): BentoRoute {
+  const reservedRoute = RESERVED_ROUTE_DEFINITIONS.find((definition) =>
+    matchesPathPrefix(request.path, definition.pathPrefix),
+  );
+
+  if (reservedRoute) {
+    return { kind: reservedRoute.kind };
   }
 
   return parseS3Route(request.path);
@@ -58,4 +64,8 @@ export function parseS3Route(path: string): S3Route {
   }
 
   return route;
+}
+
+function matchesPathPrefix(path: string, pathPrefix: string): boolean {
+  return path === pathPrefix || path.startsWith(`${pathPrefix}/`);
 }

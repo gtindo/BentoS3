@@ -69,10 +69,129 @@ interface RenderPageInput {
 
 type TemplateData = Record<string, unknown>;
 
+interface DashboardRouteDefinition {
+  method: string;
+  requiresAuth: boolean;
+  matches(path: string): boolean;
+  handle(request: BentoRequest, context: DashboardContext): Promise<BentoResponse>;
+}
+
 export class DashboardRouter implements BentoHandler {
   private readonly authStore: AuthStore;
   private readonly dashboardStore: JsonDashboardStore;
   private readonly storage: StorageDriver;
+  private readonly routes: DashboardRouteDefinition[] = [
+    {
+      method: METHOD_GET,
+      requiresAuth: false,
+      matches: (path) => matchesExactPath(path, ROOT_UI_PATH),
+      handle: () => Promise.resolve(redirectResponse("/ui/buckets")),
+    },
+    {
+      method: METHOD_GET,
+      requiresAuth: false,
+      matches: (path) => matchesExactPath(path, "/ui/login"),
+      handle: async (_request, context) =>
+        this.renderPage({
+          title: "Sign In",
+          template: "login",
+          context,
+          data: { error: "" },
+        }),
+    },
+    {
+      method: METHOD_POST,
+      requiresAuth: false,
+      matches: (path) => matchesExactPath(path, "/ui/login"),
+      handle: async (request) => this.handleLoginRequest(request),
+    },
+    {
+      method: METHOD_POST,
+      requiresAuth: true,
+      matches: (path) => matchesExactPath(path, "/ui/logout"),
+      handle: async (request) => this.handleLogoutRequest(request),
+    },
+    {
+      method: METHOD_GET,
+      requiresAuth: true,
+      matches: (path) => matchesExactPath(path, "/ui/buckets"),
+      handle: async (_request, context) => this.handleBucketsPage(context),
+    },
+    {
+      method: METHOD_GET,
+      requiresAuth: true,
+      matches: (path) => matchesExactPath(path, "/ui/buckets/new"),
+      handle: async (_request, context) =>
+        this.renderPage({
+          title: "New Bucket",
+          template: "new-bucket",
+          context,
+          activePath: "/ui/buckets",
+          data: { error: "" },
+        }),
+    },
+    {
+      method: METHOD_POST,
+      requiresAuth: true,
+      matches: (path) => matchesExactPath(path, "/ui/buckets"),
+      handle: async (request, context) => this.handleCreateBucketRequest(request, context),
+    },
+    {
+      method: METHOD_POST,
+      requiresAuth: true,
+      matches: (path) =>
+        matchesPathPrefix(path, "/ui/credentials") && matchesPathSuffix(path, "/delete"),
+      handle: async (request) => this.handleDeleteCredentialRequest(request),
+    },
+    {
+      method: METHOD_POST,
+      requiresAuth: true,
+      matches: (path) => matchesPathSuffix(path, "/delete"),
+      handle: async (request, context) => this.handleDeleteRequest(request, context),
+    },
+    {
+      method: METHOD_POST,
+      requiresAuth: true,
+      matches: (path) => matchesExactPath(path, "/ui/buckets/upload"),
+      handle: async (request, context) => this.handleUploadObjectRequest(request, context),
+    },
+    {
+      method: METHOD_GET,
+      requiresAuth: true,
+      matches: (path) => path.includes(OBJECTS_PATH_MARKER),
+      handle: async (request) => this.handleDownloadObjectRequest(request),
+    },
+    {
+      method: METHOD_GET,
+      requiresAuth: true,
+      matches: (path) => matchesPathPrefix(path, "/ui/buckets"),
+      handle: async (request, context) => this.handleBucketDetailPage(request, context),
+    },
+    {
+      method: METHOD_GET,
+      requiresAuth: true,
+      matches: (path) => matchesExactPath(path, "/ui/credentials"),
+      handle: async (_request, context) => this.handleCredentialsPage(context),
+    },
+    {
+      method: METHOD_GET,
+      requiresAuth: true,
+      matches: (path) => matchesExactPath(path, "/ui/credentials/new"),
+      handle: async (_request, context) =>
+        this.renderPage({
+          title: "New Credential",
+          template: "new-credential",
+          context,
+          activePath: "/ui/credentials",
+        }),
+    },
+    {
+      method: METHOD_POST,
+      requiresAuth: true,
+      matches: (path) => matchesExactPath(path, "/ui/credentials"),
+      handle: async (request, context) => this.handleCreateCredentialRequest(request, context),
+    },
+  ];
 
   public constructor(options: DashboardRouterOptions) {
     this.authStore = options.authStore;
@@ -87,92 +206,17 @@ export class DashboardRouter implements BentoHandler {
 
     const context = await this.createContext(request);
     const method = request.method.toUpperCase();
+    const route = findDashboardRoute(this.routes, method, request.path);
 
-    if (method === METHOD_GET && request.path === ROOT_UI_PATH) {
-      return redirectResponse("/ui/buckets");
+    if (!route) {
+      return await this.renderMessagePage({ title: "Not Found", context, statusCode: 404 });
     }
 
-    if (method === METHOD_GET && request.path === "/ui/login") {
-      return await this.renderPage({
-        title: "Sign In",
-        template: "login",
-        context,
-        data: { error: "" },
-      });
-    }
-
-    if (method === METHOD_POST && request.path === "/ui/login") {
-      return await this.handleLoginRequest(request);
-    }
-
-    if (!context.user) {
+    if (route.requiresAuth && !context.user) {
       return redirectResponse("/ui/login");
     }
 
-    if (method === METHOD_POST && request.path === "/ui/logout") {
-      return await this.handleLogoutRequest(request);
-    }
-
-    if (method === METHOD_GET && request.path === "/ui/buckets") {
-      return await this.handleBucketsPage(context);
-    }
-
-    if (method === METHOD_GET && request.path === "/ui/buckets/new") {
-      return await this.renderPage({
-        title: "New Bucket",
-        template: "new-bucket",
-        context,
-        activePath: "/ui/buckets",
-        data: { error: "" },
-      });
-    }
-
-    if (method === METHOD_POST && request.path === "/ui/buckets") {
-      return await this.handleCreateBucketRequest(request, context);
-    }
-
-    if (
-      method === METHOD_POST &&
-      request.path.startsWith("/ui/credentials/") &&
-      request.path.endsWith("/delete")
-    ) {
-      return await this.handleDeleteCredentialRequest(request);
-    }
-
-    if (method === METHOD_POST && request.path.endsWith("/delete")) {
-      return await this.handleDeleteRequest(request, context);
-    }
-
-    if (method === METHOD_POST && request.path === "/ui/buckets/upload") {
-      return await this.handleUploadObjectRequest(request, context);
-    }
-
-    if (method === METHOD_GET && request.path.includes(OBJECTS_PATH_MARKER)) {
-      return await this.handleDownloadObjectRequest(request);
-    }
-
-    if (method === METHOD_GET && request.path.startsWith("/ui/buckets/")) {
-      return await this.handleBucketDetailPage(request, context);
-    }
-
-    if (method === METHOD_GET && request.path === "/ui/credentials") {
-      return await this.handleCredentialsPage(context);
-    }
-
-    if (method === METHOD_GET && request.path === "/ui/credentials/new") {
-      return await this.renderPage({
-        title: "New Credential",
-        template: "new-credential",
-        context,
-        activePath: "/ui/credentials",
-      });
-    }
-
-    if (method === METHOD_POST && request.path === "/ui/credentials") {
-      return await this.handleCreateCredentialRequest(request, context);
-    }
-
-    return await this.renderMessagePage({ title: "Not Found", context, statusCode: 404 });
+    return await route.handle(request, context);
   }
 
   private async handleLoginRequest(request: BentoRequest): Promise<BentoResponse> {
@@ -476,6 +520,26 @@ async function serveStaticAsset(path: string): Promise<BentoResponse> {
   }
 
   return await serveStaticFile(assetPath);
+}
+
+function findDashboardRoute(
+  routes: DashboardRouteDefinition[],
+  method: string,
+  path: string,
+): DashboardRouteDefinition | undefined {
+  return routes.find((route) => route.method === method && route.matches(path));
+}
+
+function matchesExactPath(path: string, routePath: string): boolean {
+  return path === routePath;
+}
+
+function matchesPathPrefix(path: string, pathPrefix: string): boolean {
+  return path === pathPrefix || path.startsWith(`${pathPrefix}/`);
+}
+
+function matchesPathSuffix(path: string, pathSuffix: string): boolean {
+  return path.endsWith(pathSuffix);
 }
 
 async function serveStaticFile(path: string): Promise<BentoResponse> {

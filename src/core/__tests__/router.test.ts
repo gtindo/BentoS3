@@ -6,11 +6,21 @@ const EMPTY_HEADERS = {};
 
 describe("router", () => {
   it("classifies admin routes", () => {
+    expect(classifyBentoRoute(createRequest("/admin"))).toEqual({ kind: "admin" });
     expect(classifyBentoRoute(createRequest("/admin/health"))).toEqual({ kind: "admin" });
   });
 
   it("classifies dashboard routes", () => {
     expect(classifyBentoRoute(createRequest("/ui"))).toEqual({ kind: "dashboard" });
+    expect(classifyBentoRoute(createRequest("/ui/buckets"))).toEqual({ kind: "dashboard" });
+  });
+
+  it("does not match partial reserved path prefixes", () => {
+    expect(classifyBentoRoute(createRequest("/administer"))).toEqual({
+      kind: "s3",
+      bucket: "administer",
+    });
+    expect(classifyBentoRoute(createRequest("/uikit"))).toEqual({ kind: "s3", bucket: "uikit" });
   });
 
   it("parses S3 bucket and key paths", () => {

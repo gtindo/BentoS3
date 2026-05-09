@@ -4,6 +4,7 @@ import tseslint from "typescript-eslint";
 export default tseslint.config(
   {
     ignores: [
+      ".bentos3/**",
       "dist/**",
       "node_modules/**",
       "playwright-report/**",
