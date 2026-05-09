@@ -1,0 +1,12 @@
+<header class="hero">
+  <div>
+    <p class="eyebrow"><%= eyebrow %></p>
+    <h1><%= heading %></h1>
+    <p><%= description %></p>
+  </div>
+  <% if (actionHref && actionLabel) { %>
+    <div class="row">
+      <a class="button <%= actionClass %>" href="<%= actionHref %>"><%= actionLabel %></a>
+    </div>
+  <% } %>
+</header>

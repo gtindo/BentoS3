@@ -1,0 +1,46 @@
+<%- include('partials/breadcrumbs', { items: [{ label: 'Buckets' }] }) %>
+<%- include('partials/page-header', {
+  heading: 'Buckets',
+  description: 'Manage local S3 buckets and inspect their stored objects.',
+  eyebrow: 'Storage',
+  actionHref: '/ui/buckets/new',
+  actionLabel: 'New bucket',
+  actionClass: ''
+}) %>
+<section class="grid stats">
+  <article class="stat-card"><span class="stat-label">Buckets</span><span class="stat-value"><%= stats.bucketCount %></span></article>
+  <article class="stat-card"><span class="stat-label">Objects</span><span class="stat-value"><%= stats.objectCount %></span></article>
+  <article class="stat-card"><span class="stat-label">Stored</span><span class="stat-value"><%= stats.stored %></span></article>
+</section>
+<section class="card">
+  <div class="panel-title">
+    <h2>Bucket inventory</h2>
+    <span class="muted"><%= buckets.length %> buckets</span>
+  </div>
+  <% if (buckets.length === 0) { %>
+    <div class="empty">
+      <h3>No buckets yet</h3>
+      <p>Create a bucket to start storing objects.</p>
+      <a class="button" href="/ui/buckets/new">Create bucket</a>
+    </div>
+  <% } else { %>
+    <table class="table">
+      <thead><tr><th>Name</th><th>Objects</th><th>Stored</th><th>Created</th><th></th></tr></thead>
+      <tbody>
+        <% buckets.forEach((bucket) => { %>
+          <tr>
+            <td><a class="name-cell" href="/ui/buckets/<%= bucket.encodedName %>"><span class="resource-icon">B</span><span><%= bucket.name %></span></a></td>
+            <td><%= bucket.objectCount %></td>
+            <td><%= bucket.stored %></td>
+            <td><%= bucket.createdAt %></td>
+            <td>
+              <form class="inline-form" method="post" action="/ui/buckets/<%= bucket.encodedName %>/delete">
+                <button class="button danger">Delete</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</section>

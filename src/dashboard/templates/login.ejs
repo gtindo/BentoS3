@@ -1,0 +1,25 @@
+<section class="auth-shell">
+  <div class="auth-panel">
+    <div class="auth-header">
+      <p class="eyebrow">BentoS3 dashboard</p>
+      <h1>Sign in</h1>
+      <p>Manage local S3 buckets, objects, and access keys.</p>
+    </div>
+    <div class="card">
+      <div class="card-body stack">
+        <% if (error) { %><p class="flash"><%= error %></p><% } %>
+        <form class="stack" method="post" action="/ui/login">
+          <div class="field">
+            <label for="username">Username</label>
+            <input id="username" class="input" name="username" placeholder="Username">
+          </div>
+          <div class="field">
+            <label for="password">Password</label>
+            <input id="password" class="input" name="password" type="password" placeholder="Password">
+          </div>
+          <button class="button">Sign in</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>

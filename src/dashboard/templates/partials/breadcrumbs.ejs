@@ -1,0 +1,10 @@
+<nav class="breadcrumb" aria-label="Breadcrumb">
+  <% items.forEach((item, index) => { %>
+    <% if (index > 0) { %><span>/</span><% } %>
+    <% if (item.href) { %>
+      <a href="<%= item.href %>"><%= item.label %></a>
+    <% } else { %>
+      <span><%= item.label %></span>
+    <% } %>
+  <% }) %>
+</nav>

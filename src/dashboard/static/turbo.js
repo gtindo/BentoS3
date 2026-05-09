@@ -1,0 +1,1 @@
+window.Turbo = window.Turbo || {};

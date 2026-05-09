@@ -64,7 +64,7 @@
   },
   "scripts": {
     "clean": "node -e \"fs.rmSync('dist', { recursive: true, force: true })\"",
-    "build": "npm run clean && tsc -p tsconfig.build.json",
+    "build": "npm run clean && tsc -p tsconfig.build.json && node -e \"fs.cpSync('src/dashboard/templates', 'dist/dashboard/templates', { recursive: true }); fs.cpSync('src/dashboard/static', 'dist/dashboard/static', { recursive: true })\"",
     "start": "npm run build && node dist/cli/index.js serve",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -96,6 +96,7 @@
     "@aws-sdk/client-s3": "latest",
     "@eslint/js": "latest",
     "@playwright/test": "latest",
+    "@types/ejs": "^3.1.5",
     "@types/express": "^5.0.6",
     "@types/koa": "^3.0.2",
     "@types/node": "latest",
@@ -107,5 +108,8 @@
     "typescript": "latest",
     "typescript-eslint": "latest",
     "vitest": "latest"
+  },
+  "dependencies": {
+    "ejs": "^5.0.2"
   }
 }

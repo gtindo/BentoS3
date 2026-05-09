@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title><%= title %> - BentoS3</title>
+    <link rel="stylesheet" href="/ui/static/app.css">
+    <script type="module" src="/ui/static/turbo.js"></script>
+  </head>
+  <body>
+    <% if (user) { %>
+      <header class="topbar">
+        <div class="topbar-inner">
+          <a class="brand" href="/ui/buckets">BentoS3</a>
+          <nav class="topnav" aria-label="Primary">
+            <a class="<%= activePath === '/ui/buckets' ? 'active' : '' %>" href="/ui/buckets">Buckets</a>
+            <a class="<%= activePath === '/ui/credentials' ? 'active' : '' %>" href="/ui/credentials">Credentials</a>
+          </nav>
+          <div class="userbar">
+            <span><%= user.username %></span>
+            <form method="post" action="/ui/logout">
+              <button class="button secondary">Logout</button>
+            </form>
+          </div>
+        </div>
+      </header>
+      <main class="shell">
+        <div class="page"><%- content %></div>
+      </main>
+    <% } else { %>
+      <%- content %>
+    <% } %>
+  </body>
+</html>

@@ -1,0 +1,22 @@
+<%- include('partials/breadcrumbs', { items: [{ label: 'Buckets', href: '/ui/buckets' }, { label: 'New' }] }) %>
+<%- include('partials/page-header', {
+  heading: 'New bucket',
+  description: 'Create a local S3 bucket for objects and metadata.',
+  eyebrow: 'Storage',
+  actionHref: '',
+  actionLabel: '',
+  actionClass: ''
+}) %>
+<div class="card">
+  <div class="card-body stack">
+    <% if (error) { %><p class="flash"><%= error %></p><% } %>
+    <form class="stack" method="post" action="/ui/buckets">
+      <div class="field">
+        <label for="bucketName">Bucket name</label>
+        <input id="bucketName" class="input" name="bucketName" placeholder="bucket-name">
+        <span class="help">Use an S3-compatible DNS-style bucket name.</span>
+      </div>
+      <button class="button">Create bucket</button>
+    </form>
+  </div>
+</div>
