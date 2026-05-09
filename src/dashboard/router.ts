@@ -1,3 +1,4 @@
+import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { extname, resolve, sep } from "node:path";
@@ -24,8 +25,13 @@ const OBJECTS_PATH_MARKER = "/objects/";
 const ROOT_UI_PATH = "/ui";
 const STATIC_PATH_PREFIX = "/ui/static/";
 const TEMPLATE_EXTENSION = ".ejs";
+const VENDOR_TURBO_STATIC_PATH = "/ui/static/vendor/turbo.es2017-esm.js";
+const requireFromDashboard = createRequire(import.meta.url);
 const TEMPLATE_ROOT_DIR = resolve(fileURLToPath(new URL("./templates/", import.meta.url)));
 const STATIC_ROOT_DIR = resolve(fileURLToPath(new URL("./static/", import.meta.url)));
+const TURBO_PACKAGE_BUNDLE_PATH = requireFromDashboard.resolve(
+  "@hotwired/turbo/dist/turbo.es2017-esm.js",
+);
 const STATIC_CONTENT_TYPES: Record<string, string> = {
   ".css": CONTENT_TYPE_CSS,
   ".js": CONTENT_TYPE_JAVASCRIPT,
@@ -459,15 +465,23 @@ export class DashboardRouter implements BentoHandler {
 }
 
 async function serveStaticAsset(path: string): Promise<BentoResponse> {
+  if (path === VENDOR_TURBO_STATIC_PATH) {
+    return await serveStaticFile(TURBO_PACKAGE_BUNDLE_PATH);
+  }
+
   const assetPath = resolveStaticAssetPath(path);
 
   if (!assetPath) {
     return textResponse("Not found.", "text/plain; charset=utf-8", 404);
   }
 
+  return await serveStaticFile(assetPath);
+}
+
+async function serveStaticFile(path: string): Promise<BentoResponse> {
   try {
-    const body = await readFile(assetPath);
-    const contentType = STATIC_CONTENT_TYPES[extname(assetPath)] ?? CONTENT_TYPE_OCTET_STREAM;
+    const body = await readFile(path);
+    const contentType = STATIC_CONTENT_TYPES[extname(path)] ?? CONTENT_TYPE_OCTET_STREAM;
 
     return { statusCode: 200, headers: { [HEADER_CONTENT_TYPE]: contentType }, body };
   } catch {

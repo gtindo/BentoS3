@@ -5,7 +5,10 @@ import { expect, test } from "@playwright/test";
 import { JsonDashboardStore } from "../src/dashboard/json-dashboard-store.js";
 import { BentoS3 } from "../src/index.js";
 
-test("covers dashboard authentication, buckets, objects, credentials, and assets", async ({ page, request }) => {
+test("covers dashboard authentication, buckets, objects, credentials, and assets", async ({
+  page,
+  request,
+}) => {
   const rootDir = await createTempRootDir();
   const dashboardStore = new JsonDashboardStore({ rootDir });
   await dashboardStore.createUser({ username: "admin", password: "correct-password" });
@@ -43,19 +46,47 @@ test("covers dashboard authentication, buckets, objects, credentials, and assets
     const turboResponse = await request.get(`${endpoint}/ui/static/turbo.js`);
     expect(turboResponse.status()).toBe(200);
     expect(await turboResponse.text()).toContain("Turbo");
+    const turboVendorResponse = await request.get(
+      `${endpoint}/ui/static/vendor/turbo.es2017-esm.js`,
+    );
+    expect(turboVendorResponse.status()).toBe(200);
+    expect(await turboVendorResponse.text()).toContain("Turbo 8");
+    await expect
+      .poll(() =>
+        page.evaluate(() =>
+          Boolean((Reflect.get(window, "Turbo") as { session?: unknown }).session),
+        ),
+      )
+      .toBe(true);
+
+    const turboProbe = await page.evaluate(() => {
+      Reflect.set(window, "__bentoTurboProbe", String(Date.now()));
+
+      return Reflect.get(window, "__bentoTurboProbe") as string;
+    });
 
     await page.getByRole("link", { name: "New bucket" }).click();
+    await expect(page).toHaveURL(`${endpoint}/ui/buckets/new`);
+    await expect
+      .poll(() =>
+        page.evaluate<string>(() => String(Reflect.get(window, "__bentoTurboProbe") ?? "")),
+      )
+      .toBe(turboProbe);
     await page.getByPlaceholder("bucket-name").fill("ui-e2e-bucket");
     await page.getByRole("button", { name: "Create bucket" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "ui-e2e-bucket" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText("ui-e2e-bucket");
+    await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText(
+      "ui-e2e-bucket",
+    );
     await expect(stat(join(rootDir, ".bentos3", "buckets", "ui-e2e-bucket"))).resolves.toBeTruthy();
 
     await page.getByPlaceholder("object/key.txt").fill("folder/example.txt");
     await page.getByPlaceholder("Object body").fill("hello dashboard");
     await page.getByRole("button", { name: "Upload object" }).click();
     await expect(page.getByRole("link", { name: "folder/example.txt" })).toBeVisible();
-    await expect(stat(join(rootDir, ".bentos3", "buckets", "ui-e2e-bucket", "folder", "example.txt"))).resolves.toBeTruthy();
+    await expect(
+      stat(join(rootDir, ".bentos3", "buckets", "ui-e2e-bucket", "folder", "example.txt")),
+    ).resolves.toBeTruthy();
 
     await page.getByLabel("Upload file").setInputFiles({
       name: "file-upload.txt",
@@ -64,7 +95,9 @@ test("covers dashboard authentication, buckets, objects, credentials, and assets
     });
     await page.getByRole("button", { name: "Upload object" }).click();
     await expect(page.getByRole("link", { name: "file-upload.txt" })).toBeVisible();
-    await expect(readFile(join(rootDir, ".bentos3", "buckets", "ui-e2e-bucket", "file-upload.txt"), "utf8")).resolves.toBe("hello file upload");
+    await expect(
+      readFile(join(rootDir, ".bentos3", "buckets", "ui-e2e-bucket", "file-upload.txt"), "utf8"),
+    ).resolves.toBe("hello file upload");
 
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("link", { name: "folder/example.txt" }).click();
@@ -87,8 +120,14 @@ test("covers dashboard authentication, buckets, objects, credentials, and assets
     await expect(page.getByText("The bucket you tried to delete is not empty.")).toBeVisible();
 
     await page.goto(`${endpoint}/ui/buckets/ui-e2e-bucket`);
-    await page.getByRole("row", { name: /folder\/example\.txt/ }).getByRole("button", { name: "Delete" }).click();
-    await page.getByRole("row", { name: /file-upload\.txt/ }).getByRole("button", { name: "Delete" }).click();
+    await page
+      .getByRole("row", { name: /folder\/example\.txt/ })
+      .getByRole("button", { name: "Delete" })
+      .click();
+    await page
+      .getByRole("row", { name: /file-upload\.txt/ })
+      .getByRole("button", { name: "Delete" })
+      .click();
     await expect(page.getByRole("heading", { name: "No objects yet" })).toBeVisible();
 
     await page.goto(`${endpoint}/ui/buckets`);

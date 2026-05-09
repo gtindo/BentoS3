@@ -58,7 +58,7 @@
       <tbody>
         <% objects.forEach((object) => { %>
           <tr>
-            <td><a class="name-cell" href="/ui/buckets/<%= bucket.encodedName %>/objects/<%= object.encodedKey %>"><span class="resource-icon file-icon">F</span><span><%= object.key %></span></a></td>
+            <td><a class="name-cell" data-turbo="false" href="/ui/buckets/<%= bucket.encodedName %>/objects/<%= object.encodedKey %>"><span class="resource-icon file-icon">F</span><span><%= object.key %></span></a></td>
             <td><%= object.size %></td>
             <td><%= object.lastModified %></td>
             <td>
