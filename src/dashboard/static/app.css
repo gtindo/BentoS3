@@ -191,7 +191,7 @@ a {
 
 .stat-card,
 .card,
-.bucket-summary {
+.bucket-snapshot {
   background: var(--panel);
   border: 1px solid var(--line);
 }
@@ -386,34 +386,34 @@ a {
   margin: 8px 0 18px;
 }
 
-.upload-grid {
+.bucket-snapshot {
+  padding: 20px;
   display: grid;
-  grid-template-columns: 0.9fr 1.2fr;
-  gap: 18px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 20px;
 }
 
-.bucket-summary {
-  padding: 24px;
-}
-
-.bucket-summary h2 {
+.bucket-snapshot p {
   margin: 0;
-  font-size: 28px;
-  letter-spacing: -0.04em;
+}
+
+.bucket-snapshot .muted {
+  margin-top: 8px;
 }
 
 .summary-list {
-  margin-top: 22px;
   display: grid;
+  grid-template-columns: repeat(2, minmax(130px, 1fr));
   gap: 12px;
 }
 
 .summary-item {
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  background: var(--panel-soft);
+  border: 1px solid var(--line);
 }
 
 .or-label {
@@ -433,11 +433,12 @@ a {
   .topbar-inner,
   .hero,
   .panel-title,
-  .upload-grid {
+  .bucket-snapshot {
     display: grid;
     align-items: stretch;
   }
 
+  .summary-list,
   .stats {
     grid-template-columns: 1fr;
   }

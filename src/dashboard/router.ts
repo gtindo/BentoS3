@@ -1,7 +1,7 @@
 import { createRequire } from "node:module";
 import { randomBytes } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { extname, resolve, sep } from "node:path";
+import { extname, isAbsolute, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import ejs from "ejs";
 import type { AuthStore } from "../auth/types.js";
@@ -25,7 +25,13 @@ const OBJECTS_PATH_MARKER = "/objects/";
 const ROOT_UI_PATH = "/ui";
 const STATIC_PATH_PREFIX = "/ui/static/";
 const TEMPLATE_EXTENSION = ".ejs";
+const UPLOAD_VALIDATION_STATUS_CODE = 422;
 const VENDOR_TURBO_STATIC_PATH = "/ui/static/vendor/turbo.es2017-esm.js";
+const EMPTY_UPLOAD_MESSAGE = "Choose a file or enter both an object key and object body.";
+const MISSING_TEXT_KEY_MESSAGE = "Enter an object key for the text upload.";
+const MISSING_TEXT_BODY_MESSAGE = "Enter an object body for the text upload.";
+const UNSAFE_OBJECT_KEY_MESSAGE = "Object key is not safe to store on disk.";
+const INTERNAL_BUCKET_METADATA_FILE = ".bentos3-bucket.json";
 const requireFromDashboard = createRequire(import.meta.url);
 const TEMPLATE_ROOT_DIR = resolve(fileURLToPath(new URL("./templates/", import.meta.url)));
 const STATIC_ROOT_DIR = resolve(fileURLToPath(new URL("./static/", import.meta.url)));
@@ -51,6 +57,7 @@ interface UploadFormData {
   bucket: string;
   key: string;
   body: Uint8Array;
+  hasFile: boolean;
 }
 
 interface MultipartPart {
@@ -160,6 +167,12 @@ export class DashboardRouter implements BentoHandler {
       requiresAuth: true,
       matches: (path) => path.includes(OBJECTS_PATH_MARKER),
       handle: async (request) => this.handleDownloadObjectRequest(request),
+    },
+    {
+      method: METHOD_GET,
+      requiresAuth: true,
+      matches: (path) => matchesBucketUploadPath(path),
+      handle: async (request, context) => this.handleUploadObjectPage(request, context),
     },
     {
       method: METHOD_GET,
@@ -346,16 +359,70 @@ export class DashboardRouter implements BentoHandler {
     });
   }
 
+  private async handleUploadObjectPage(
+    request: BentoRequest,
+    context: DashboardContext,
+  ): Promise<BentoResponse> {
+    const bucket = decodeURIComponent(
+      request.path.slice("/ui/buckets/".length, -"/upload".length),
+    );
+
+    return await this.renderUploadObjectPage(context, bucket);
+  }
+
+  private async renderUploadObjectPage(
+    context: DashboardContext,
+    bucket: string,
+    error = "",
+    statusCode = 200,
+  ): Promise<BentoResponse> {
+    return await this.renderPage(
+      {
+        title: "Upload Object",
+        template: "upload-object",
+        context,
+        activePath: "/ui/buckets",
+        data: {
+          bucket: {
+            name: bucket,
+            encodedName: encodeURIComponent(bucket),
+          },
+          error,
+        },
+      },
+      statusCode,
+    );
+  }
+
   private async handleUploadObjectRequest(
     request: BentoRequest,
     context: DashboardContext,
   ): Promise<BentoResponse> {
     const form = await readUploadForm(request);
+    const validationError = validateUploadForm(form);
+
+    if (validationError) {
+      return await this.renderUploadObjectPage(
+        context,
+        form.bucket,
+        validationError,
+        UPLOAD_VALIDATION_STATUS_CODE,
+      );
+    }
 
     try {
       await this.storage.putObject({ bucket: form.bucket, key: form.key, body: form.body });
       return redirectResponse(`/ui/buckets/${encodeURIComponent(form.bucket)}`);
     } catch (error) {
+      if (error instanceof StorageError && error.code === "InvalidObjectKey") {
+        return await this.renderUploadObjectPage(
+          context,
+          form.bucket,
+          readErrorMessage(error),
+          UPLOAD_VALIDATION_STATUS_CODE,
+        );
+      }
+
       return await this.renderMessagePage({
         title: "Upload Failed",
         context,
@@ -542,6 +609,10 @@ function matchesPathSuffix(path: string, pathSuffix: string): boolean {
   return path.endsWith(pathSuffix);
 }
 
+function matchesBucketUploadPath(path: string): boolean {
+  return matchesPathPrefix(path, "/ui/buckets") && matchesPathSuffix(path, "/upload");
+}
+
 async function serveStaticFile(path: string): Promise<BentoResponse> {
   try {
     const body = await readFile(path);
@@ -588,7 +659,7 @@ async function renderDashboardPage(input: RenderPageInput): Promise<string> {
 async function renderTemplate(templateName: string, data: TemplateData): Promise<string> {
   const templatePath = resolve(TEMPLATE_ROOT_DIR, `${templateName}${TEMPLATE_EXTENSION}`);
 
-  return await ejs.renderFile(templatePath, data, { cache: true, filename: templatePath });
+  return await ejs.renderFile(templatePath, data, { cache: false, filename: templatePath });
 }
 
 async function readForm(request: BentoRequest): Promise<URLSearchParams> {
@@ -617,29 +688,60 @@ async function readUploadForm(request: BentoRequest): Promise<UploadFormData> {
     const key = form.get("key") ?? "";
     const textBody = form.get("body") ?? "";
 
-    return { bucket, key, body: new TextEncoder().encode(textBody) };
+    return { bucket, key, body: new TextEncoder().encode(textBody), hasFile: false };
   }
 
   const boundary = readMultipartBoundary(contentType);
 
   if (!boundary) {
-    return { bucket: "", key: "", body: new Uint8Array() };
+    return { bucket: "", key: "", body: new Uint8Array(), hasFile: false };
   }
 
   const parts = parseMultipartBody(body, boundary);
   const bucket = readMultipartText(parts, "bucket");
   const requestedKey = readMultipartText(parts, "key");
   const textBody = readMultipartText(parts, "body");
-  const file = parts.find(
-    (part) => part.name === "file" && part.filename && part.body.byteLength > 0,
-  );
+  const file = parts.find((part) => part.name === "file" && part.filename);
   const key = requestedKey.length > 0 ? requestedKey : (file?.filename ?? "");
 
   if (file) {
-    return { bucket, key, body: file.body };
+    return { bucket, key, body: file.body, hasFile: true };
   }
 
-  return { bucket, key, body: new TextEncoder().encode(textBody) };
+  return { bucket, key, body: new TextEncoder().encode(textBody), hasFile: false };
+}
+
+function validateUploadForm(form: UploadFormData): string | undefined {
+  const hasKey = form.key.length > 0;
+  const hasBody = form.body.byteLength > 0;
+
+  if (!form.hasFile) {
+    if (!hasKey && !hasBody) {
+      return EMPTY_UPLOAD_MESSAGE;
+    }
+
+    if (!hasKey) {
+      return MISSING_TEXT_KEY_MESSAGE;
+    }
+
+    if (!hasBody) {
+      return MISSING_TEXT_BODY_MESSAGE;
+    }
+  }
+
+  if (isUnsafeObjectKey(form.key)) {
+    return UNSAFE_OBJECT_KEY_MESSAGE;
+  }
+
+  return undefined;
+}
+
+function isUnsafeObjectKey(key: string): boolean {
+  const normalizedKey = normalize(key);
+  const segments = normalizedKey.split(sep);
+  const targetsBucketMetadata = normalizedKey === INTERNAL_BUCKET_METADATA_FILE;
+
+  return key.length === 0 || isAbsolute(key) || segments.includes("..") || targetsBucketMetadata;
 }
 
 async function readRequestBody(request: BentoRequest): Promise<Uint8Array> {

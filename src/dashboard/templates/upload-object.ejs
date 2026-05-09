@@ -1,0 +1,33 @@
+<%- include('partials/breadcrumbs', { items: [{ label: 'Buckets', href: '/ui/buckets' }, { label: bucket.name, href: `/ui/buckets/${bucket.encodedName}` }, { label: 'Upload' }] }) %>
+<%- include('partials/page-header', {
+  heading: 'Upload object',
+  description: `Add a file or text object to ${bucket.name}.`,
+  eyebrow: 'Bucket',
+  actionHref: `/ui/buckets/${bucket.encodedName}`,
+  actionLabel: 'Back to bucket',
+  actionClass: 'secondary'
+}) %>
+<div class="card">
+  <div class="card-body stack">
+    <form class="stack" method="post" action="/ui/buckets/upload" enctype="multipart/form-data" data-upload-form>
+      <p class="flash" role="alert" data-upload-error <% if (!error) { %>hidden<% } %>><%= error %></p>
+      <input type="hidden" name="bucket" value="<%= bucket.name %>">
+      <div class="field">
+        <label for="key">Object key</label>
+        <input id="key" class="input" name="key" placeholder="object/key.txt" data-upload-key>
+        <span class="help">Optional for file uploads. Leave empty to use the selected file name.</span>
+      </div>
+      <div class="field">
+        <label for="file">Upload file</label>
+        <input id="file" class="input" name="file" type="file" data-upload-file>
+        <span class="help">If a file is selected, it is uploaded instead of the text body.</span>
+      </div>
+      <div class="or-label">Or create from text</div>
+      <div class="field">
+        <label for="body">Object body</label>
+        <textarea id="body" class="textarea" name="body" placeholder="Object body" data-upload-body></textarea>
+      </div>
+      <button class="button">Upload object</button>
+    </form>
+  </div>
+</div>

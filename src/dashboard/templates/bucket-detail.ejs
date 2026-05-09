@@ -3,42 +3,23 @@
   heading: bucket.name,
   description: 'Browse, upload, download, and remove objects in this bucket.',
   eyebrow: 'Bucket',
-  actionHref: '/ui/buckets',
-  actionLabel: 'All buckets',
-  actionClass: 'secondary'
+  actionHref: `/ui/buckets/${bucket.encodedName}/upload`,
+  actionLabel: 'Upload object',
+  actionClass: ''
 }) %>
-<section class="upload-grid">
-  <div class="bucket-summary">
+<section class="bucket-snapshot">
+  <div>
     <p class="eyebrow">Bucket snapshot</p>
-    <h2><%= bucket.name %></h2>
-    <p class="muted">A flat view of the selected bucket and its local object inventory.</p>
-    <div class="summary-list">
-      <div class="summary-item"><span class="stat-label">Objects</span><span class="stat-value"><%= bucket.objectCount %></span></div>
-      <div class="summary-item"><span class="stat-label">Stored</span><span class="stat-value"><%= bucket.stored %></span></div>
-    </div>
+    <p class="muted">A flat view of local object inventory.</p>
   </div>
-  <div class="card">
-    <div class="panel-title"><h2>Upload object</h2></div>
-    <div class="card-body">
-      <form class="stack" method="post" action="/ui/buckets/upload" enctype="multipart/form-data">
-        <input type="hidden" name="bucket" value="<%= bucket.name %>">
-        <div class="field">
-          <label for="key">Object key</label>
-          <input id="key" class="input" name="key" placeholder="object/key.txt">
-          <span class="help">Optional for file uploads. Leave empty to use the selected file name.</span>
-        </div>
-        <div class="field">
-          <label for="file">Upload file</label>
-          <input id="file" class="input" name="file" type="file">
-          <span class="help">If a file is selected, it is uploaded instead of the text body.</span>
-        </div>
-        <div class="or-label">Or create from text</div>
-        <div class="field">
-          <label for="body">Object body</label>
-          <textarea id="body" class="textarea" name="body" placeholder="Object body"></textarea>
-        </div>
-        <button class="button">Upload object</button>
-      </form>
+  <div class="summary-list">
+    <div class="summary-item">
+      <span class="stat-label">Objects</span>
+      <span class="stat-value"><%= bucket.objectCount %></span>
+    </div>
+    <div class="summary-item">
+      <span class="stat-label">Stored</span>
+      <span class="stat-value"><%= bucket.stored %></span>
     </div>
   </div>
 </section>

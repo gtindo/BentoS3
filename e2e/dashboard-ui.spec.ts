@@ -42,6 +42,9 @@ test("covers dashboard authentication, buckets, objects, credentials, and assets
     const cssResponse = await request.get(`${endpoint}/ui/static/app.css`);
     expect(cssResponse.status()).toBe(200);
     expect(await cssResponse.text()).toContain(".card");
+    const appResponse = await request.get(`${endpoint}/ui/static/app.js`);
+    expect(appResponse.status()).toBe(200);
+    expect(await appResponse.text()).toContain("validateUploadForm");
 
     const turboResponse = await request.get(`${endpoint}/ui/static/turbo.js`);
     expect(turboResponse.status()).toBe(200);
@@ -75,10 +78,33 @@ test("covers dashboard authentication, buckets, objects, credentials, and assets
     await page.getByPlaceholder("bucket-name").fill("ui-e2e-bucket");
     await page.getByRole("button", { name: "Create bucket" }).click();
     await expect(page.getByRole("heading", { level: 1, name: "ui-e2e-bucket" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "ui-e2e-bucket" })).toHaveCount(1);
     await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toContainText(
       "ui-e2e-bucket",
     );
     await expect(stat(join(rootDir, ".bentos3", "buckets", "ui-e2e-bucket"))).resolves.toBeTruthy();
+    await expect(page.getByLabel("Upload file")).toHaveCount(0);
+
+    await page.getByRole("link", { name: "Upload object" }).click();
+    await expect(page).toHaveURL(`${endpoint}/ui/buckets/ui-e2e-bucket/upload`);
+    await expect(page.getByLabel("Upload file")).toBeVisible();
+    await page.getByRole("button", { name: "Upload object" }).click();
+    await expect(page).toHaveURL(`${endpoint}/ui/buckets/ui-e2e-bucket/upload`);
+    await expect(page.getByRole("alert")).toContainText(
+      "Choose a file or enter both an object key and object body.",
+    );
+
+    const keyOnlyUploadResponse = await page.request.post(`${endpoint}/ui/buckets/upload`, {
+      form: { bucket: "ui-e2e-bucket", key: "backend-key-only.txt", body: "" },
+    });
+    expect(keyOnlyUploadResponse.status()).toBe(422);
+    expect(await keyOnlyUploadResponse.text()).toContain("Enter an object body for the text upload.");
+
+    const bodyOnlyUploadResponse = await page.request.post(`${endpoint}/ui/buckets/upload`, {
+      form: { bucket: "ui-e2e-bucket", key: "", body: "body without key" },
+    });
+    expect(bodyOnlyUploadResponse.status()).toBe(422);
+    expect(await bodyOnlyUploadResponse.text()).toContain("Enter an object key for the text upload.");
 
     await page.getByPlaceholder("object/key.txt").fill("folder/example.txt");
     await page.getByPlaceholder("Object body").fill("hello dashboard");
@@ -88,6 +114,7 @@ test("covers dashboard authentication, buckets, objects, credentials, and assets
       stat(join(rootDir, ".bentos3", "buckets", "ui-e2e-bucket", "folder", "example.txt")),
     ).resolves.toBeTruthy();
 
+    await page.getByRole("link", { name: "Upload object" }).click();
     await page.getByLabel("Upload file").setInputFiles({
       name: "file-upload.txt",
       mimeType: "text/plain",
