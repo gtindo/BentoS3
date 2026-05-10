@@ -1,3 +1,4 @@
+import { Readable } from "node:stream";
 import { describe, expect, it } from "vitest";
 import { BentoS3Core, MemoryAuthStore, type BentoRequest } from "../../index.js";
 
@@ -32,6 +33,18 @@ describe("BentoS3Core", () => {
     expect(response.body).toContain("MethodNotAllowed");
   });
 
+  it("rejects request bodies over the configured local limit", async () => {
+    const core = new BentoS3Core({ auth: { enabled: false }, maxRequestBodyBytes: 4 });
+
+    await core.handle(createRequest("PUT", "/photos"));
+    const response = await core.handle(
+      createRequest("PUT", "/photos/large.txt", createBody("large")),
+    );
+
+    expect(response.statusCode).toBe(413);
+    expect(response.body).toContain("EntityTooLarge");
+  });
+
   it("rejects missing authorization when auth is enabled", async () => {
     const core = new BentoS3Core({ authStore: createAuthStore() });
     const response = await core.handle(createRequest("GET", "/"));
@@ -52,12 +65,17 @@ function createAuthStore(): MemoryAuthStore {
   ]);
 }
 
-function createRequest(method: string, path: string): BentoRequest {
+function createRequest(method: string, path: string, body?: BentoRequest["body"]): BentoRequest {
   return {
     method,
     url: path,
     path,
     query: new URLSearchParams(),
     headers: EMPTY_HEADERS,
+    ...(body ? { body } : {}),
   };
+}
+
+function createBody(value: string): NodeJS.ReadableStream {
+  return Readable.from([new TextEncoder().encode(value)]);
 }

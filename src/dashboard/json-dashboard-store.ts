@@ -1,7 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { createSessionToken, hashPassword, hashSessionToken, verifyPassword, verifySessionToken, type PasswordHash } from "./crypto.js";
+import {
+  createSessionToken,
+  hashPassword,
+  hashSessionToken,
+  verifyPassword,
+  verifySessionToken,
+  type PasswordHash,
+} from "./crypto.js";
 
 const AUTH_DIRECTORY = "auth";
 const BENTO_ROOT_DIRECTORY = ".bentos3";
@@ -84,14 +91,20 @@ export class JsonDashboardStore {
     const existingUserIndex = file.users.findIndex((user) => user.username === input.username);
     const password = hashPassword(input.password);
     const user: SerializedDashboardUser = {
-      id: existingUserIndex === -1 ? `user_${randomUUID()}` : file.users[existingUserIndex]?.id ?? `user_${randomUUID()}`,
+      id:
+        existingUserIndex === -1
+          ? `user_${randomUUID()}`
+          : (file.users[existingUserIndex]?.id ?? `user_${randomUUID()}`),
       username: input.username,
       passwordHash: password.hash,
       passwordSalt: password.salt,
       passwordAlgorithm: password.algorithm,
       passwordKeyLength: password.keyLength,
       passwordCost: password.cost,
-      createdAt: existingUserIndex === -1 ? new Date().toISOString() : file.users[existingUserIndex]?.createdAt ?? new Date().toISOString(),
+      createdAt:
+        existingUserIndex === -1
+          ? new Date().toISOString()
+          : (file.users[existingUserIndex]?.createdAt ?? new Date().toISOString()),
     };
 
     if (existingUserIndex === -1) {
@@ -105,7 +118,10 @@ export class JsonDashboardStore {
     return deserializeUser(user);
   }
 
-  public async authenticateUser(username: string, password: string): Promise<DashboardUser | undefined> {
+  public async authenticateUser(
+    username: string,
+    password: string,
+  ): Promise<DashboardUser | undefined> {
     const file = await this.readUsersFile();
     const user = file.users.find((candidate) => candidate.username === username);
 
@@ -146,7 +162,9 @@ export class JsonDashboardStore {
 
   public async getUserBySessionToken(token: string): Promise<DashboardUser | undefined> {
     const sessionsFile = pruneExpiredSessions(await this.readSessionsFile());
-    const session = sessionsFile.sessions.find((candidate) => verifySessionToken(token, candidate.tokenHash));
+    const session = sessionsFile.sessions.find((candidate) =>
+      verifySessionToken(token, candidate.tokenHash),
+    );
 
     if (!session) {
       return undefined;
@@ -160,7 +178,9 @@ export class JsonDashboardStore {
 
   public async deleteSession(token: string): Promise<void> {
     const file = await this.readSessionsFile();
-    const sessions = file.sessions.filter((session) => !verifySessionToken(token, session.tokenHash));
+    const sessions = file.sessions.filter(
+      (session) => !verifySessionToken(token, session.tokenHash),
+    );
 
     await this.writeJsonFile(this.sessionsPath, { ...file, sessions });
   }

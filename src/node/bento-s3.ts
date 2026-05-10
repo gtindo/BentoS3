@@ -101,8 +101,11 @@ function createDefaultHandler(options: BentoS3Options): BentoHandler {
   const rootDir = options.rootDir ?? DEFAULT_ROOT_DIR;
   const storage =
     options.storage ??
-    (options.rootDir ? new FileSystemStorageDriver({ rootDir }) : new MemoryStorageDriver(options.buckets));
-  const authStore = options.authStore ?? (options.rootDir ? new JsonAuthStore({ rootDir }) : new MemoryAuthStore());
+    (options.rootDir
+      ? new FileSystemStorageDriver({ rootDir })
+      : new MemoryStorageDriver(options.buckets));
+  const authStore =
+    options.authStore ?? (options.rootDir ? new JsonAuthStore({ rootDir }) : new MemoryAuthStore());
   const core = new BentoS3Core(createCoreOptions(options, storage, authStore));
 
   if (options.dashboard?.enabled === false) {
@@ -112,6 +115,9 @@ function createDefaultHandler(options: BentoS3Options): BentoHandler {
   const dashboard = new DashboardRouter({
     authStore,
     dashboardStore: new JsonDashboardStore({ rootDir }),
+    ...(options.maxRequestBodyBytes === undefined
+      ? {}
+      : { maxRequestBodyBytes: options.maxRequestBodyBytes }),
     storage,
   });
 
@@ -137,7 +143,6 @@ function createCoreOptions(
     authStore,
   };
 }
-
 
 export function readServerPort(server: Server): number {
   const address = server.address();

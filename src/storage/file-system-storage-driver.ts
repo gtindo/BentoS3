@@ -64,6 +64,7 @@ export class FileSystemStorageDriver implements StorageDriver {
 
   public async createBucket(name: string): Promise<void> {
     await this.ensureRootDirectories();
+    validateBucketName(name);
 
     const bucketPath = this.getBucketPath(name);
 
@@ -192,6 +193,8 @@ export class FileSystemStorageDriver implements StorageDriver {
   }
 
   private async readBucketInfo(name: string): Promise<BucketInfo> {
+    validateBucketName(name);
+
     const metadata = await readJsonFile<BucketMetadataFile>(this.getBucketMetadataPath(name));
     return { name: metadata.name, createdAt: new Date(metadata.createdAt) };
   }
@@ -244,6 +247,23 @@ export class FileSystemStorageDriver implements StorageDriver {
     }
 
     return paths;
+  }
+}
+
+export function validateBucketName(name: string): void {
+  const normalizedName = normalize(name);
+  const segments = normalizedName.split(sep);
+  const containsPathSeparator = name.includes("/") || name.includes("\\");
+
+  if (
+    name.length === 0 ||
+    isAbsolute(name) ||
+    containsPathSeparator ||
+    segments.includes("..") ||
+    normalizedName === "." ||
+    normalizedName !== name
+  ) {
+    throw new StorageError("InvalidBucketName", "Bucket name is not safe to store on disk.");
   }
 }
 

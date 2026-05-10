@@ -72,7 +72,9 @@ function createHeaderRecord(headers: Headers): Record<string, string> {
   return result;
 }
 
-function createFetchResponseBody(response: BentoResponse): ConstructorParameters<typeof Response>[0] {
+function createFetchResponseBody(
+  response: BentoResponse,
+): ConstructorParameters<typeof Response>[0] {
   if (isBodyForbiddenStatusCode(response.statusCode)) {
     return null;
   }

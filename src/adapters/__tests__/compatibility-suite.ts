@@ -47,7 +47,9 @@ export function runS3CompatibilitySuite(
       const client = createS3Client(server);
 
       await client.send(new CreateBucketCommand({ Bucket: "photos" }));
-      await client.send(new HeadObjectCommand({ Bucket: "photos", Key: "missing.txt" })).catch(() => undefined);
+      await client
+        .send(new HeadObjectCommand({ Bucket: "photos", Key: "missing.txt" }))
+        .catch(() => undefined);
       const buckets = await client.send(new ListBucketsCommand({}));
 
       expect(buckets.Buckets?.map((bucket) => bucket.Name)).toContain("photos");
@@ -60,9 +62,13 @@ export function runS3CompatibilitySuite(
       const client = createS3Client(server);
 
       await client.send(new CreateBucketCommand({ Bucket: "photos" }));
-      await client.send(new PutObjectCommand({ Bucket: "photos", Key: "cats/leo.txt", Body: "hello" }));
+      await client.send(
+        new PutObjectCommand({ Bucket: "photos", Key: "cats/leo.txt", Body: "hello" }),
+      );
 
-      const object = await client.send(new GetObjectCommand({ Bucket: "photos", Key: "cats/leo.txt" }));
+      const object = await client.send(
+        new GetObjectCommand({ Bucket: "photos", Key: "cats/leo.txt" }),
+      );
 
       await expect(object.Body?.transformToString()).resolves.toBe("hello");
 
@@ -86,7 +92,9 @@ export function runS3CompatibilitySuite(
         }),
       );
 
-      const object = await client.send(new GetObjectCommand({ Bucket: "photos", Key: "binary.dat" }));
+      const object = await client.send(
+        new GetObjectCommand({ Bucket: "photos", Key: "binary.dat" }),
+      );
       const objectPath = join(server.rootDir, ".bentos3", "buckets", "photos", "binary.dat");
 
       expect(object.ContentType).toBe("application/octet-stream");
@@ -101,13 +109,19 @@ export function runS3CompatibilitySuite(
       const body = Buffer.alloc(128 * 1024, "a");
 
       await client.send(new CreateBucketCommand({ Bucket: "photos" }));
-      await client.send(new PutObjectCommand({ Bucket: "photos", Key: "cats/large.txt", Body: body }));
-      await client.send(new PutObjectCommand({ Bucket: "photos", Key: "dogs/large.txt", Body: "dog" }));
+      await client.send(
+        new PutObjectCommand({ Bucket: "photos", Key: "cats/large.txt", Body: body }),
+      );
+      await client.send(
+        new PutObjectCommand({ Bucket: "photos", Key: "dogs/large.txt", Body: "dog" }),
+      );
 
       const listedObjects = await client.send(
         new ListObjectsV2Command({ Bucket: "photos", Prefix: "cats/" }),
       );
-      const object = await client.send(new GetObjectCommand({ Bucket: "photos", Key: "cats/large.txt" }));
+      const object = await client.send(
+        new GetObjectCommand({ Bucket: "photos", Key: "cats/large.txt" }),
+      );
 
       expect(listedObjects.Contents?.map((item) => item.Key)).toEqual(["cats/large.txt"]);
       await expect(object.Body?.transformToByteArray()).resolves.toEqual(new Uint8Array(body));

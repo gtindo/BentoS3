@@ -1,5 +1,10 @@
 import type { BentoRequest, BentoResponse } from "../core/types.js";
 import type { S3Route } from "../core/router.js";
+import {
+  DEFAULT_MAX_REQUEST_BODY_BYTES,
+  readRequestBody,
+  RequestBodyTooLargeError,
+} from "../core/body.js";
 import { createS3ErrorResponse } from "./errors.js";
 import { createXmlDocument, createXmlElement } from "./xml.js";
 import type { BucketInfo, ObjectInfo, StorageDriver } from "../storage/types.js";
@@ -31,10 +36,17 @@ interface DeleteObjectRequest {
   key: string;
 }
 
+interface HandleS3RequestOptions {
+  maxBodyBytes: number;
+}
+
 export async function handleS3Request(
   request: BentoRequest,
   route: S3Route,
   storage: StorageDriver,
+  options: HandleS3RequestOptions = {
+    maxBodyBytes: DEFAULT_MAX_REQUEST_BODY_BYTES,
+  },
 ): Promise<BentoResponse> {
   const method = request.method.toUpperCase();
 
@@ -83,7 +95,7 @@ export async function handleS3Request(
     }
 
     if (method === METHOD_PUT && route.bucket && route.key) {
-      return await handlePutObjectRequest(request, route.bucket, route.key, storage);
+      return await handlePutObjectRequest(request, route.bucket, route.key, storage, options);
     }
 
     if (method === METHOD_GET && route.bucket && route.key) {
@@ -101,7 +113,7 @@ export async function handleS3Request(
     }
 
     if (method === METHOD_POST && route.bucket && !route.key && request.query.has(QUERY_DELETE)) {
-      return await handleDeleteObjectsRequest(request, route.bucket, storage);
+      return await handleDeleteObjectsRequest(request, route.bucket, storage, options);
     }
 
     return createMethodNotAllowedResponse();
@@ -152,8 +164,9 @@ async function handlePutObjectRequest(
   bucket: string,
   key: string,
   storage: StorageDriver,
+  options: HandleS3RequestOptions,
 ): Promise<BentoResponse> {
-  const body = await readRequestBody(request.body);
+  const body = await readRequestBody(request.body, options.maxBodyBytes);
   const contentType = getHeader(request, HEADER_CONTENT_TYPE);
   const info = await storage.putObject({
     bucket,
@@ -207,8 +220,9 @@ async function handleDeleteObjectsRequest(
   request: BentoRequest,
   bucket: string,
   storage: StorageDriver,
+  options: HandleS3RequestOptions,
 ): Promise<BentoResponse> {
-  const body = await readRequestBody(request.body);
+  const body = await readRequestBody(request.body, options.maxBodyBytes);
   const deleteRequests = parseDeleteObjectsRequest(new TextDecoder().decode(body));
 
   for (const deleteRequest of deleteRequests) {
@@ -297,6 +311,14 @@ function createEmptyResponse(statusCode = 200): BentoResponse {
 }
 
 function createErrorResponse(error: unknown): BentoResponse {
+  if (error instanceof RequestBodyTooLargeError) {
+    return createS3ErrorResponse({
+      code: "EntityTooLarge",
+      message: error.message,
+      statusCode: 413,
+    });
+  }
+
   if (!isStorageError(error)) {
     throw error;
   }
@@ -314,6 +336,14 @@ function createErrorResponse(error: unknown): BentoResponse {
       code: "BucketNotEmpty",
       message: error.message,
       statusCode: 409,
+    });
+  }
+
+  if (error.code === "InvalidBucketName") {
+    return createS3ErrorResponse({
+      code: "InvalidBucketName",
+      message: error.message,
+      statusCode: 400,
     });
   }
 
@@ -338,22 +368,6 @@ function createMethodNotAllowedResponse(): BentoResponse {
     message: "The specified method is not allowed against this resource.",
     statusCode: 405,
   });
-}
-
-async function readRequestBody(body: BentoRequest["body"]): Promise<Uint8Array> {
-  if (!body) {
-    return new Uint8Array();
-  }
-
-  const chunks: Uint8Array[] = [];
-
-  for await (const chunk of body) {
-    chunks.push(
-      typeof chunk === "string" ? new TextEncoder().encode(chunk) : new Uint8Array(chunk),
-    );
-  }
-
-  return Buffer.concat(chunks);
 }
 
 function readUserMetadata(request: BentoRequest): Record<string, string> {

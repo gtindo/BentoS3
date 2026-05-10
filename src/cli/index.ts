@@ -26,7 +26,11 @@ async function main(argv: string[]): Promise<void> {
   }
 
   if (domain === "user" && action === "create" && subject) {
-    await createDashboardUser(rootDir, subject, readStringOption(args, "password", createPassword()));
+    await createDashboardUser(
+      rootDir,
+      subject,
+      readStringOption(args, "password", createPassword()),
+    );
     return;
   }
 
@@ -68,7 +72,11 @@ async function serve(args: ParsedArgs, rootDir: string): Promise<void> {
   await waitForShutdown(server);
 }
 
-async function createDashboardUser(rootDir: string, username: string, password: string): Promise<void> {
+async function createDashboardUser(
+  rootDir: string,
+  username: string,
+  password: string,
+): Promise<void> {
   const store = new JsonDashboardStore({ rootDir });
   await store.createUser({ username, password });
 
@@ -92,7 +100,9 @@ async function listBuckets(rootDir: string): Promise<void> {
   }
 }
 
-async function bootstrapDefaultCredential(authStore: JsonAuthStore): Promise<{ accessKeyId: string; secretAccessKey: string } | undefined> {
+async function bootstrapDefaultCredential(
+  authStore: JsonAuthStore,
+): Promise<{ accessKeyId: string; secretAccessKey: string } | undefined> {
   const credentials = await authStore.listCredentials();
 
   if (credentials.length > 0) {

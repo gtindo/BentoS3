@@ -5,6 +5,11 @@ import { extname, isAbsolute, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import ejs from "ejs";
 import type { AuthStore } from "../auth/types.js";
+import {
+  DEFAULT_MAX_REQUEST_BODY_BYTES,
+  readRequestBody,
+  RequestBodyTooLargeError,
+} from "../core/body.js";
 import type { BentoHandler, BentoRequest, BentoResponse } from "../core/types.js";
 import { StorageError } from "../storage/errors.js";
 import type { StorageDriver } from "../storage/types.js";
@@ -49,6 +54,7 @@ const STATIC_CONTENT_TYPES: Record<string, string> = {
 export interface DashboardRouterOptions {
   authStore: AuthStore;
   dashboardStore: JsonDashboardStore;
+  maxRequestBodyBytes?: number;
   storage: StorageDriver;
 }
 
@@ -108,6 +114,7 @@ interface DashboardRouteDefinition {
 export class DashboardRouter implements BentoHandler {
   private readonly authStore: AuthStore;
   private readonly dashboardStore: JsonDashboardStore;
+  private readonly maxRequestBodyBytes: number;
   private readonly storage: StorageDriver;
   private readonly routes: DashboardRouteDefinition[] = [
     {
@@ -231,6 +238,7 @@ export class DashboardRouter implements BentoHandler {
   public constructor(options: DashboardRouterOptions) {
     this.authStore = options.authStore;
     this.dashboardStore = options.dashboardStore;
+    this.maxRequestBodyBytes = options.maxRequestBodyBytes ?? DEFAULT_MAX_REQUEST_BODY_BYTES;
     this.storage = options.storage;
   }
 
@@ -251,11 +259,24 @@ export class DashboardRouter implements BentoHandler {
       return redirectResponse("/ui/login");
     }
 
-    return await route.handle(request, context);
+    try {
+      return await route.handle(request, context);
+    } catch (error) {
+      if (error instanceof RequestBodyTooLargeError) {
+        return await this.renderMessagePage({
+          title: "Request Too Large",
+          context,
+          message: error.message,
+          statusCode: 413,
+        });
+      }
+
+      throw error;
+    }
   }
 
   private async handleLoginRequest(request: BentoRequest): Promise<BentoResponse> {
-    const form = await readForm(request);
+    const form = await readForm(request, this.maxRequestBodyBytes);
     const username = form.get("username") ?? "";
     const password = form.get("password") ?? "";
     const user = await this.dashboardStore.authenticateUser(username, password);
@@ -345,7 +366,7 @@ export class DashboardRouter implements BentoHandler {
     request: BentoRequest,
     context: DashboardContext,
   ): Promise<BentoResponse> {
-    const form = await readForm(request);
+    const form = await readForm(request, this.maxRequestBodyBytes);
     const bucketName = form.get("bucketName") ?? "";
 
     try {
@@ -435,7 +456,7 @@ export class DashboardRouter implements BentoHandler {
     request: BentoRequest,
     context: DashboardContext,
   ): Promise<BentoResponse> {
-    const form = await readUploadForm(request);
+    const form = await readUploadForm(request, this.maxRequestBodyBytes);
     const validationError = validateUploadForm(form);
 
     if (validationError) {
@@ -525,7 +546,7 @@ export class DashboardRouter implements BentoHandler {
     request: BentoRequest,
     context: DashboardContext,
   ): Promise<BentoResponse> {
-    const form = await readForm(request);
+    const form = await readForm(request, this.maxRequestBodyBytes);
     const requestedAccessKeyId = form.get("accessKeyId");
     const accessKeyId = requestedAccessKeyId?.length
       ? requestedAccessKeyId
@@ -757,25 +778,18 @@ async function renderTemplate(templateName: string, data: TemplateData): Promise
   return await ejs.renderFile(templatePath, data, { cache: false, filename: templatePath });
 }
 
-async function readForm(request: BentoRequest): Promise<URLSearchParams> {
-  const chunks: Uint8Array[] = [];
+async function readForm(request: BentoRequest, maxBodyBytes: number): Promise<URLSearchParams> {
+  const body = await readRequestBody(request.body, maxBodyBytes);
 
-  if (!request.body) {
-    return new URLSearchParams();
-  }
-
-  for await (const chunk of request.body) {
-    chunks.push(
-      typeof chunk === "string" ? new TextEncoder().encode(chunk) : new Uint8Array(chunk),
-    );
-  }
-
-  return new URLSearchParams(new TextDecoder().decode(Buffer.concat(chunks)));
+  return new URLSearchParams(new TextDecoder().decode(body));
 }
 
-async function readUploadForm(request: BentoRequest): Promise<UploadFormData> {
+async function readUploadForm(
+  request: BentoRequest,
+  maxBodyBytes: number,
+): Promise<UploadFormData> {
   const contentType = getHeader(request, HEADER_CONTENT_TYPE);
-  const body = await readRequestBody(request);
+  const body = await readRequestBody(request.body, maxBodyBytes);
 
   if (!contentType?.includes("multipart/form-data")) {
     const form = new URLSearchParams(new TextDecoder().decode(body));
@@ -837,22 +851,6 @@ function isUnsafeObjectKey(key: string): boolean {
   const targetsBucketMetadata = normalizedKey === INTERNAL_BUCKET_METADATA_FILE;
 
   return key.length === 0 || isAbsolute(key) || segments.includes("..") || targetsBucketMetadata;
-}
-
-async function readRequestBody(request: BentoRequest): Promise<Uint8Array> {
-  const chunks: Uint8Array[] = [];
-
-  if (!request.body) {
-    return new Uint8Array();
-  }
-
-  for await (const chunk of request.body) {
-    chunks.push(
-      typeof chunk === "string" ? new TextEncoder().encode(chunk) : new Uint8Array(chunk),
-    );
-  }
-
-  return Buffer.concat(chunks);
 }
 
 function readMultipartBoundary(contentType: string): string | undefined {

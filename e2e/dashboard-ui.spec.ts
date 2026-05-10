@@ -57,22 +57,22 @@ test("covers dashboard authentication, buckets, objects, credentials, and assets
     await expect
       .poll(() =>
         page.evaluate(() =>
-          Boolean((Reflect.get(window, "Turbo") as { session?: unknown }).session),
+          Boolean((Reflect.get(globalThis, "Turbo") as { session?: unknown }).session),
         ),
       )
       .toBe(true);
 
     const turboProbe = await page.evaluate(() => {
-      Reflect.set(window, "__bentoTurboProbe", String(Date.now()));
+      Reflect.set(globalThis, "__bentoTurboProbe", String(Date.now()));
 
-      return Reflect.get(window, "__bentoTurboProbe") as string;
+      return Reflect.get(globalThis, "__bentoTurboProbe") as string;
     });
 
     await page.getByRole("link", { name: "New bucket" }).click();
     await expect(page).toHaveURL(`${endpoint}/ui/buckets/new`);
     await expect
       .poll(() =>
-        page.evaluate<string>(() => String(Reflect.get(window, "__bentoTurboProbe") ?? "")),
+        page.evaluate<string>(() => String(Reflect.get(globalThis, "__bentoTurboProbe") ?? "")),
       )
       .toBe(turboProbe);
     await page.getByPlaceholder("bucket-name").fill("ui-e2e-bucket");
@@ -98,13 +98,17 @@ test("covers dashboard authentication, buckets, objects, credentials, and assets
       form: { bucket: "ui-e2e-bucket", key: "backend-key-only.txt", body: "" },
     });
     expect(keyOnlyUploadResponse.status()).toBe(422);
-    expect(await keyOnlyUploadResponse.text()).toContain("Enter an object body for the text upload.");
+    expect(await keyOnlyUploadResponse.text()).toContain(
+      "Enter an object body for the text upload.",
+    );
 
     const bodyOnlyUploadResponse = await page.request.post(`${endpoint}/ui/buckets/upload`, {
       form: { bucket: "ui-e2e-bucket", key: "", body: "body without key" },
     });
     expect(bodyOnlyUploadResponse.status()).toBe(422);
-    expect(await bodyOnlyUploadResponse.text()).toContain("Enter an object key for the text upload.");
+    expect(await bodyOnlyUploadResponse.text()).toContain(
+      "Enter an object key for the text upload.",
+    );
 
     await page.getByPlaceholder("object/key.txt").fill("folder/example.txt");
     await page.getByPlaceholder("Object body").fill("hello dashboard");

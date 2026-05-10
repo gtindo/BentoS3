@@ -22,7 +22,10 @@ const {
 test("covers signed API bucket and object lifecycle with filesystem assertions", async () => {
   const rootDir = await createTempRootDir();
   const authStore = new JsonAuthStore({ rootDir });
-  await authStore.createCredential({ accessKeyId: ACCESS_KEY_ID, secretAccessKey: SECRET_ACCESS_KEY });
+  await authStore.createCredential({
+    accessKeyId: ACCESS_KEY_ID,
+    secretAccessKey: SECRET_ACCESS_KEY,
+  });
 
   const server = new BentoS3({ authStore, port: 0, rootDir });
   await server.start();
@@ -39,8 +42,17 @@ test("covers signed API bucket and object lifecycle with filesystem assertions",
     await expect(client.send(new CreateBucketCommand({ Bucket: bucket }))).rejects.toThrow();
 
     await client.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: "hello api" }));
-    await expect(readFile(join(rootDir, ".bentos3", "buckets", bucket, "nested", "object with spaces.txt"), "utf8")).resolves.toBe("hello api");
-    await expect(stat(join(rootDir, ".bentos3", "buckets", bucket, "nested", "object with spaces.txt.meta.json"))).resolves.toBeTruthy();
+    await expect(
+      readFile(
+        join(rootDir, ".bentos3", "buckets", bucket, "nested", "object with spaces.txt"),
+        "utf8",
+      ),
+    ).resolves.toBe("hello api");
+    await expect(
+      stat(
+        join(rootDir, ".bentos3", "buckets", bucket, "nested", "object with spaces.txt.meta.json"),
+      ),
+    ).resolves.toBeTruthy();
 
     const headObject = await client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
     expect(headObject.ContentLength).toBe(9);
@@ -48,13 +60,17 @@ test("covers signed API bucket and object lifecycle with filesystem assertions",
     const object = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
     await expect(object.Body?.transformToString()).resolves.toBe("hello api");
 
-    const listedObjects = await client.send(new ListObjectsV2Command({ Bucket: bucket, Prefix: "nested/" }));
+    const listedObjects = await client.send(
+      new ListObjectsV2Command({ Bucket: bucket, Prefix: "nested/" }),
+    );
     expect(listedObjects.Contents?.map((entry) => entry.Key)).toContain(key);
 
     await expect(client.send(new DeleteBucketCommand({ Bucket: bucket }))).rejects.toThrow();
 
     await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
-    await expect(stat(join(rootDir, ".bentos3", "buckets", bucket, "nested", "object with spaces.txt"))).rejects.toThrow();
+    await expect(
+      stat(join(rootDir, ".bentos3", "buckets", bucket, "nested", "object with spaces.txt")),
+    ).rejects.toThrow();
 
     await client.send(new DeleteBucketCommand({ Bucket: bucket }));
     await expect(stat(join(rootDir, ".bentos3", "buckets", bucket))).rejects.toThrow();
@@ -66,7 +82,10 @@ test("covers signed API bucket and object lifecycle with filesystem assertions",
 test("rejects invalid signed API credentials", async () => {
   const rootDir = await createTempRootDir();
   const authStore = new JsonAuthStore({ rootDir });
-  await authStore.createCredential({ accessKeyId: ACCESS_KEY_ID, secretAccessKey: SECRET_ACCESS_KEY });
+  await authStore.createCredential({
+    accessKeyId: ACCESS_KEY_ID,
+    secretAccessKey: SECRET_ACCESS_KEY,
+  });
 
   const server = new BentoS3({ authStore, port: 0, rootDir });
   await server.start();
@@ -75,7 +94,9 @@ test("rejects invalid signed API credentials", async () => {
     const endpoint = readEndpoint(server);
     const client = createClient(endpoint, "wrong-secret-key");
 
-    await expect(client.send(new CreateBucketCommand({ Bucket: "invalid-auth-bucket" }))).rejects.toThrow();
+    await expect(
+      client.send(new CreateBucketCommand({ Bucket: "invalid-auth-bucket" })),
+    ).rejects.toThrow();
   } finally {
     await server.stop();
   }

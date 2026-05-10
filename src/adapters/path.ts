@@ -11,7 +11,10 @@ export interface AdapterPathResult {
   canonicalPath?: string;
 }
 
-export function resolveAdapterPath(rawUrl: string, options: AdapterPathOptions = {}): AdapterPathResult {
+export function resolveAdapterPath(
+  rawUrl: string,
+  options: AdapterPathOptions = {},
+): AdapterPathResult {
   const url = new URL(rawUrl, "http://bentos3.local");
   const normalizedBasePath = normalizeBasePath(options.basePath);
   const path = normalizedBasePath ? stripBasePath(url.pathname, normalizedBasePath) : url.pathname;

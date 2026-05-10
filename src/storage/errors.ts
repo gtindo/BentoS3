@@ -1,5 +1,6 @@
 export type StorageErrorCode =
   | "BucketAlreadyExists"
+  | "InvalidBucketName"
   | "BucketNotEmpty"
   | "InvalidObjectKey"
   | "NoSuchBucket"

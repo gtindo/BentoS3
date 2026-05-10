@@ -68,6 +68,32 @@ describe("FileSystemStorageDriver", () => {
       code: "ENOENT",
     });
   });
+
+  it("rejects bucket names that attempt path traversal", async () => {
+    const rootDir = await createTempRoot();
+    const storage = new FileSystemStorageDriver({ rootDir });
+
+    await expect(storage.createBucket("../auth")).rejects.toMatchObject({
+      code: "InvalidBucketName",
+    });
+
+    await expect(stat(join(rootDir, ".bentos3", "auth"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
+  it("rejects encoded bucket names that include path separators", async () => {
+    const rootDir = await createTempRoot();
+    const storage = new FileSystemStorageDriver({ rootDir });
+
+    await expect(storage.createBucket("nested/bucket")).rejects.toMatchObject({
+      code: "InvalidBucketName",
+    });
+
+    await expect(stat(join(rootDir, ".bentos3", "buckets", "nested"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
 });
 
 async function createTempRoot(): Promise<string> {

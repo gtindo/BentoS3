@@ -75,9 +75,7 @@ export class JsonAuthStore implements AuthStore {
 
   public async disableCredential(accessKeyId: string): Promise<void> {
     const file = await this.readStoreFile();
-    const credential = file.credentials.find(
-      (candidate) => candidate.accessKeyId === accessKeyId,
-    );
+    const credential = file.credentials.find((candidate) => candidate.accessKeyId === accessKeyId);
 
     if (!credential?.enabled) {
       return;

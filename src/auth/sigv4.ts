@@ -1,5 +1,10 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { Readable } from "node:stream";
+import {
+  DEFAULT_MAX_REQUEST_BODY_BYTES,
+  readRequestBody,
+  RequestBodyTooLargeError,
+} from "../core/body.js";
 import type { BentoRequest, BentoResponse } from "../core/types.js";
 import { createS3ErrorResponse } from "../s3/errors.js";
 import type { AuthStore } from "./types.js";
@@ -32,9 +37,16 @@ interface AuthorizationHeader {
   signature: string;
 }
 
+interface ValidateS3RequestAuthOptions {
+  maxBodyBytes: number;
+}
+
 export async function validateS3RequestAuth(
   request: BentoRequest,
   authStore: AuthStore,
+  options: ValidateS3RequestAuthOptions = {
+    maxBodyBytes: DEFAULT_MAX_REQUEST_BODY_BYTES,
+  },
 ): Promise<BentoResponse | undefined> {
   const authorization = getHeader(request, HEADER_AUTHORIZATION);
 
@@ -80,7 +92,17 @@ export async function validateS3RequestAuth(
     return createAccessDeniedResponse("Access key is disabled.");
   }
 
-  const payloadHash = await getPayloadHash(request);
+  let payloadHash: string | undefined;
+
+  try {
+    payloadHash = await getPayloadHash(request, options.maxBodyBytes);
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return createRequestBodyTooLargeResponse(error);
+    }
+
+    throw error;
+  }
 
   if (!payloadHash) {
     return createAccessDeniedResponse("Invalid payload hash.");
@@ -203,7 +225,10 @@ export function createCanonicalQueryString(query: URLSearchParams): string {
     .join("&");
 }
 
-export async function getPayloadHash(request: BentoRequest): Promise<string | undefined> {
+export async function getPayloadHash(
+  request: BentoRequest,
+  maxBodyBytes = DEFAULT_MAX_REQUEST_BODY_BYTES,
+): Promise<string | undefined> {
   const signedPayloadHash = getHeader(request, HEADER_X_AMZ_CONTENT_SHA256);
 
   if (signedPayloadHash === UNSIGNED_PAYLOAD) {
@@ -216,7 +241,7 @@ export async function getPayloadHash(request: BentoRequest): Promise<string | un
     return payloadHash === EMPTY_HASH ? payloadHash : undefined;
   }
 
-  const body = await readRequestBody(request.body);
+  const body = await readRequestBody(request.body, maxBodyBytes);
   const actualPayloadHash = createHash(HMAC_ALGORITHM).update(body).digest(HEX_ENCODING);
   request.body = createBufferedBody(body);
 
@@ -245,7 +270,11 @@ function parseAuthorizationParameters(value: string): Map<string, string> {
   return parameters;
 }
 
-function createStringToSign(date: string, credentialScope: string, canonicalRequest: string): string {
+function createStringToSign(
+  date: string,
+  credentialScope: string,
+  canonicalRequest: string,
+): string {
   return [
     ALGORITHM_AWS4_HMAC_SHA256,
     date,
@@ -260,7 +289,9 @@ function createSignature(
   region: string,
   stringToSign: string,
 ): string {
-  const dateKey = createHmac(HMAC_ALGORITHM, `${SIGNING_KEY_PREFIX}${secretAccessKey}`).update(date).digest();
+  const dateKey = createHmac(HMAC_ALGORITHM, `${SIGNING_KEY_PREFIX}${secretAccessKey}`)
+    .update(date)
+    .digest();
   const regionKey = createHmac(HMAC_ALGORITHM, dateKey).update(region).digest();
   const serviceKey = createHmac(HMAC_ALGORITHM, regionKey).update(SERVICE_S3).digest();
   const signingKey = createHmac(HMAC_ALGORITHM, serviceKey).update(SIGNING_REQUEST).digest();
@@ -279,21 +310,7 @@ function hasMatchingSignature(expectedSignature: string, actualSignature: string
   return timingSafeEqual(expected, actual);
 }
 
-async function readRequestBody(body: NonNullable<BentoRequest["body"]>): Promise<Uint8Array> {
-  const chunks: Uint8Array[] = [];
-
-  for await (const chunk of body) {
-    chunks.push(
-      typeof chunk === "string" ? new TextEncoder().encode(chunk) : new Uint8Array(chunk),
-    );
-  }
-
-  return Buffer.concat(chunks);
-}
-
-function normalizeHeaders(
-  headers: BentoRequest["headers"],
-): Map<string, string> {
+function normalizeHeaders(headers: BentoRequest["headers"]): Map<string, string> {
   const normalizedHeaders = new Map<string, string>();
 
   for (const [name, value] of Object.entries(headers)) {
@@ -347,6 +364,10 @@ function splitOnce(value: string, separator: string): [string, string | undefine
 
 function createAccessDeniedResponse(message: string): BentoResponse {
   return createS3ErrorResponse({ code: "AccessDenied", message, statusCode: 403 });
+}
+
+function createRequestBodyTooLargeResponse(error: RequestBodyTooLargeError): BentoResponse {
+  return createS3ErrorResponse({ code: "EntityTooLarge", message: error.message, statusCode: 413 });
 }
 
 function createInvalidAccessKeyResponse(): BentoResponse {

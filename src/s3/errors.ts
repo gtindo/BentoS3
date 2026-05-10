@@ -7,6 +7,8 @@ const REQUEST_ID = "0000000000000000";
 export type S3ErrorCode =
   | "AccessDenied"
   | "BucketAlreadyExists"
+  | "EntityTooLarge"
+  | "InvalidBucketName"
   | "BucketNotEmpty"
   | "InvalidArgument"
   | "InvalidAccessKeyId"

@@ -9,6 +9,8 @@ It is designed as both:
 
 BentoS3 aims to provide the most commonly used S3 behavior without the operational weight of MinIO, LocalStack, or a full object-storage server.
 
+BentoS3 is intended for local development, automated tests, and CI. It is not production object storage and does not attempt full S3 feature parity.
+
 ## Installation
 
 Install BentoS3 from npm:
@@ -274,6 +276,14 @@ Supported S3 operations:
 - `DeleteObjects`
 - `CopyObject`
 
+Current compatibility limits:
+
+- Requests must use path-style addressing.
+- SigV4 header authentication is supported; presigned URL query authentication is not supported.
+- `ListObjectsV2` supports prefix filtering, but not delimiter grouping, continuation tokens, `StartAfter`, or custom `MaxKeys` pagination.
+- Multipart upload, range requests, ACLs, bucket policies, object tagging, lifecycle policies, replication, and object lock are not supported.
+- Bucket names are restricted to filesystem-safe path segments for local persistence.
+
 ## Storage
 
 BentoS3 uses the local filesystem as its primary persistence layer. Storage drivers write a `.bentos3/` data directory inside the configured `rootDir`.
@@ -327,6 +337,14 @@ const bento = new BentoS3Core({
 });
 ```
 
+Request body buffering is capped by default to keep local runs from accidentally exhausting memory. Configure the limit when larger test fixtures are needed:
+
+```ts
+const s3 = new BentoS3({
+  maxRequestBodyBytes: 250 * 1024 * 1024,
+});
+```
+
 ## Dashboard
 
 The dashboard is a server-rendered UI for managing buckets, objects, and access keys. It is enabled by default when running `bentos3 serve` or creating a `BentoS3` instance without `dashboard.enabled: false`.
@@ -352,7 +370,7 @@ Dashboard passwords are hashed with Node `crypto.scrypt`. Sessions store token h
 
 ### Technology
 
-- Inline HTML rendering.
+- EJS templates.
 - Inline CSS styled with a compact dashboard design system.
 - Turbo-compatible static script placeholder.
 - JSON files for user and session storage.
