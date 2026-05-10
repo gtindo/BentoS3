@@ -38,6 +38,7 @@ const STATIC_ROOT_DIR = resolve(fileURLToPath(new URL("./static/", import.meta.u
 const TURBO_PACKAGE_BUNDLE_PATH = requireFromDashboard.resolve(
   "@hotwired/turbo/dist/turbo.es2017-esm.js",
 );
+
 const STATIC_CONTENT_TYPES: Record<string, string> = {
   ".css": CONTENT_TYPE_CSS,
   ".js": CONTENT_TYPE_JAVASCRIPT,
@@ -363,9 +364,7 @@ export class DashboardRouter implements BentoHandler {
     request: BentoRequest,
     context: DashboardContext,
   ): Promise<BentoResponse> {
-    const bucket = decodeURIComponent(
-      request.path.slice("/ui/buckets/".length, -"/upload".length),
-    );
+    const bucket = decodeURIComponent(request.path.slice("/ui/buckets/".length, -"/upload".length));
 
     return await this.renderUploadObjectPage(context, bucket);
   }
