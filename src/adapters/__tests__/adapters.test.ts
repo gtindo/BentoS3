@@ -7,6 +7,7 @@ import { expressAdapter, koaAdapter } from "../../index.js";
 import {
   createCore,
   createExpressTestServer,
+  createFastifyExplicitBasePathTestServer,
   createFastifyTestServer,
   createFetchTestServer,
   createKoaTestServer,
@@ -18,6 +19,10 @@ type MaybeAsyncRequestListener = (...parameters: Parameters<RequestListener>) =>
 runS3CompatibilitySuite("Express adapter", createExpressTestServer);
 runS3CompatibilitySuite("Koa adapter", createKoaTestServer);
 runS3CompatibilitySuite("Fastify adapter", createFastifyTestServer);
+runS3CompatibilitySuite(
+  "Fastify adapter with explicit basePath",
+  createFastifyExplicitBasePathTestServer,
+);
 runS3CompatibilitySuite("Fetch adapter", createFetchTestServer);
 
 describe("adapter raw stream safeguards", () => {
@@ -103,10 +108,7 @@ function toRequestListener(listener: MaybeAsyncRequestListener): RequestListener
   };
 }
 
-async function listenWithRoot(
-  listener: RequestListener,
-  rootDir: string,
-): Promise<TestServer> {
+async function listenWithRoot(listener: RequestListener, rootDir: string): Promise<TestServer> {
   const server = createServer(listener);
 
   await new Promise<void>((resolve, reject) => {

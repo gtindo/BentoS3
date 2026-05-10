@@ -26,7 +26,7 @@
 <section class="card">
   <div class="panel-title">
     <h2>Objects</h2>
-    <span class="muted"><%= objects.length %> objects</span>
+    <span class="muted"><%= pagination.startItem %>-<%= pagination.endItem %> of <%= pagination.totalItems %> objects</span>
   </div>
   <% if (objects.length === 0) { %>
     <div class="empty">
@@ -51,5 +51,6 @@
         <% }) %>
       </tbody>
     </table>
+    <%- include('partials/pagination', { pagination }) %>
   <% } %>
 </section>

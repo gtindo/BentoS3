@@ -1,12 +1,23 @@
 import express from "express";
-import fastify from "fastify";
+import fastify, { type FastifyInstance } from "fastify";
 import Koa from "koa";
-import { createServer, type IncomingHttpHeaders, type RequestListener, type Server } from "node:http";
+import {
+  createServer,
+  type IncomingHttpHeaders,
+  type RequestListener,
+  type Server,
+} from "node:http";
 import { mkdtemp } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
-import { BentoS3Core, expressAdapter, fastifyBentoS3, handleFetchRequest, koaAdapter } from "../../index.js";
+import {
+  BentoS3Core,
+  expressAdapter,
+  fastifyBentoS3,
+  handleFetchRequest,
+  koaAdapter,
+} from "../../index.js";
 import { FileSystemStorageDriver } from "../../storage/file-system-storage-driver.js";
 import { MemoryAuthStore } from "../../auth/memory-auth-store.js";
 import type { TestServer } from "./compatibility-suite.js";
@@ -47,11 +58,28 @@ export async function createFastifyTestServer(): Promise<TestServer> {
   const app = fastify();
   const core = createCore(rootDir);
 
+  await app.register(fastifyBentoS3, { prefix: "/s3", bento: core });
+  await app.listen({ host: HOST, port: 0 });
+
+  return createFastifyTestServerResult(app, rootDir);
+}
+
+export async function createFastifyExplicitBasePathTestServer(): Promise<TestServer> {
+  const rootDir = await createTempRoot();
+  const app = fastify();
+  const core = createCore(rootDir);
+
   await app.register(fastifyBentoS3, { prefix: "/s3", bento: core, basePath: "/s3" });
   await app.listen({ host: HOST, port: 0 });
 
+  return createFastifyTestServerResult(app, rootDir);
+}
+
+function createFastifyTestServerResult(app: FastifyInstance, rootDir: string): TestServer {
+  const endpoint = readFastifyEndpoint(app.server.address());
+
   return {
-    endpoint: `${readFastifyEndpoint(app.server.address())}/s3`,
+    endpoint: `${endpoint}/s3`,
     rootDir,
     accessKeyId: TEST_ACCESS_KEY_ID,
     secretAccessKey: TEST_SECRET_ACCESS_KEY,
@@ -66,7 +94,8 @@ export async function createFetchTestServer(): Promise<TestServer> {
   const core = createCore(rootDir);
   const server = createServer((request, response) => {
     const host = request.headers.host ?? HOST;
-    const body = request.method === "GET" || request.method === "HEAD" ? undefined : Readable.toWeb(request);
+    const body =
+      request.method === "GET" || request.method === "HEAD" ? undefined : Readable.toWeb(request);
     const fetchRequest = new Request(`${HTTP_PROTOCOL}://${host}${request.url ?? "/"}`, {
       method: request.method,
       headers: createFetchHeaders(request.headers),

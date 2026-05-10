@@ -1,0 +1,22 @@
+<% if (pagination.totalPages > 1) { %>
+  <nav class="pagination" aria-label="Pagination">
+    <form class="pagination-jump" method="get" action="<%= pagination.pagePath %>">
+      <label class="muted" for="pagination-page">Page</label>
+      <input class="pagination-input" id="pagination-page" name="page" type="number" min="1" max="<%= pagination.totalPages %>" value="<%= pagination.currentPage %>">
+      <span class="muted">of <%= pagination.totalPages %></span>
+      <button class="button secondary" type="submit">Go</button>
+    </form>
+    <div class="pagination-actions">
+      <% if (pagination.hasPreviousPage) { %>
+        <a class="button secondary" href="<%= pagination.previousHref %>">Previous</a>
+      <% } else { %>
+        <span class="button secondary disabled" aria-disabled="true">Previous</span>
+      <% } %>
+      <% if (pagination.hasNextPage) { %>
+        <a class="button secondary" href="<%= pagination.nextHref %>">Next</a>
+      <% } else { %>
+        <span class="button secondary disabled" aria-disabled="true">Next</span>
+      <% } %>
+    </div>
+  </nav>
+<% } %>

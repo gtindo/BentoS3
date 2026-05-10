@@ -17,13 +17,14 @@ export const fastifyBentoS3: FastifyPluginCallback<FastifyBentoS3Options> = (
   done,
 ) => {
   registerRawContentTypeParser(fastify);
+  const pathOptions = createFastifyPathOptions(fastify, options);
 
   for (const url of [ROOT_ROUTE, WILDCARD_ROUTE]) {
     fastify.route({
       method: ALL_METHODS,
       url,
       handler: async (request, reply) => {
-        await handleFastifyBentoS3Request(request, reply, options);
+        await handleFastifyBentoS3Request(request, reply, pathOptions);
       },
     });
   }
@@ -48,4 +49,14 @@ function registerRawContentTypeParser(fastify: FastifyInstance): void {
   fastify.addContentTypeParser("*", (_request, payload, done) => {
     done(null, payload);
   });
+}
+
+function createFastifyPathOptions(
+  fastify: FastifyInstance,
+  options: FastifyBentoS3Options,
+): FastifyBentoS3Options {
+  return {
+    ...options,
+    basePath: options.basePath ?? fastify.prefix,
+  };
 }

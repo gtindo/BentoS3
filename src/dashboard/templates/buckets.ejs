@@ -15,7 +15,7 @@
 <section class="card">
   <div class="panel-title">
     <h2>Bucket inventory</h2>
-    <span class="muted"><%= buckets.length %> buckets</span>
+    <span class="muted"><%= pagination.startItem %>-<%= pagination.endItem %> of <%= pagination.totalItems %> buckets</span>
   </div>
   <% if (buckets.length === 0) { %>
     <div class="empty">
@@ -42,5 +42,6 @@
         <% }) %>
       </tbody>
     </table>
+    <%- include('partials/pagination', { pagination }) %>
   <% } %>
 </section>

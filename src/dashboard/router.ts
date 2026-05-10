@@ -22,6 +22,8 @@ const MULTIPART_BOUNDARY_PREFIX = "boundary=";
 const METHOD_GET = "GET";
 const METHOD_POST = "POST";
 const OBJECTS_PATH_MARKER = "/objects/";
+const PAGINATION_PAGE_SIZE = 50;
+const PAGE_QUERY_PARAMETER = "page";
 const ROOT_UI_PATH = "/ui";
 const STATIC_PATH_PREFIX = "/ui/static/";
 const TEMPLATE_EXTENSION = ".ejs";
@@ -77,6 +79,25 @@ interface RenderPageInput {
 
 type TemplateData = Record<string, unknown>;
 
+interface PaginationView {
+  currentPage: number;
+  endItem: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  nextHref: string;
+  pagePath: string;
+  pageSize: number;
+  previousHref: string;
+  startItem: number;
+  totalItems: number;
+  totalPages: number;
+}
+
+interface PaginatedItems<T> {
+  items: T[];
+  pagination: PaginationView;
+}
+
 interface DashboardRouteDefinition {
   method: string;
   requiresAuth: boolean;
@@ -123,7 +144,7 @@ export class DashboardRouter implements BentoHandler {
       method: METHOD_GET,
       requiresAuth: true,
       matches: (path) => matchesExactPath(path, "/ui/buckets"),
-      handle: async (_request, context) => this.handleBucketsPage(context),
+      handle: async (request, context) => this.handleBucketsPage(request, context),
     },
     {
       method: METHOD_GET,
@@ -270,8 +291,12 @@ export class DashboardRouter implements BentoHandler {
     });
   }
 
-  private async handleBucketsPage(context: DashboardContext): Promise<BentoResponse> {
+  private async handleBucketsPage(
+    request: BentoRequest,
+    context: DashboardContext,
+  ): Promise<BentoResponse> {
     const buckets = await this.storage.listBuckets();
+    const paginatedBuckets = paginateItems(buckets, request.query, "/ui/buckets");
     const bucketViews = await Promise.all(
       buckets.map(async (bucket) => {
         const objects = (await this.storage.listObjects({ bucket: bucket.name })).objects;
@@ -287,6 +312,15 @@ export class DashboardRouter implements BentoHandler {
         };
       }),
     );
+    const paginatedBucketViews = paginatedBuckets.items.map((bucket) => {
+      const bucketView = bucketViews.find((candidate) => candidate.name === bucket.name);
+
+      if (!bucketView) {
+        throw new Error(`Unable to render bucket ${bucket.name}.`);
+      }
+
+      return bucketView;
+    });
     const totalObjects = bucketViews.reduce((count, bucket) => count + bucket.objectCount, 0);
     const totalBytes = bucketViews.reduce((size, bucket) => size + bucket.storedBytes, 0);
 
@@ -296,7 +330,8 @@ export class DashboardRouter implements BentoHandler {
       context,
       activePath: "/ui/buckets",
       data: {
-        buckets: bucketViews,
+        buckets: paginatedBucketViews,
+        pagination: paginatedBuckets.pagination,
         stats: {
           bucketCount: buckets.length,
           objectCount: totalObjects,
@@ -336,6 +371,8 @@ export class DashboardRouter implements BentoHandler {
   ): Promise<BentoResponse> {
     const bucket = decodeURIComponent(request.path.slice("/ui/buckets/".length));
     const objects = (await this.storage.listObjects({ bucket })).objects;
+    const pagePath = `/ui/buckets/${encodeURIComponent(bucket)}`;
+    const paginatedObjects = paginateItems(objects, request.query, pagePath);
     const totalBytes = objects.reduce((size, object) => size + object.size, 0);
 
     return await this.renderPage({
@@ -350,12 +387,13 @@ export class DashboardRouter implements BentoHandler {
           objectCount: objects.length,
           stored: formatBytes(totalBytes),
         },
-        objects: objects.map((object) => ({
+        objects: paginatedObjects.items.map((object) => ({
           key: object.key,
           encodedKey: encodeURIComponent(object.key),
           size: formatBytes(object.size),
           lastModified: formatDateTime(object.lastModified),
         })),
+        pagination: paginatedObjects.pagination,
       },
     });
   }
@@ -610,6 +648,64 @@ function matchesPathSuffix(path: string, pathSuffix: string): boolean {
 
 function matchesBucketUploadPath(path: string): boolean {
   return matchesPathPrefix(path, "/ui/buckets") && matchesPathSuffix(path, "/upload");
+}
+
+export function paginateItems<T>(
+  items: T[],
+  query: URLSearchParams,
+  pagePath: string,
+): PaginatedItems<T> {
+  const totalItems = items.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / PAGINATION_PAGE_SIZE));
+  const requestedPage = parsePaginationPage(query);
+  const currentPage = Math.min(requestedPage, totalPages);
+  const startIndex = (currentPage - 1) * PAGINATION_PAGE_SIZE;
+  const endIndex = startIndex + PAGINATION_PAGE_SIZE;
+  const hasPreviousPage = currentPage > 1;
+  const hasNextPage = currentPage < totalPages;
+  const startItem = totalItems === 0 ? 0 : startIndex + 1;
+  const endItem = Math.min(endIndex, totalItems);
+
+  return {
+    items: items.slice(startIndex, endIndex),
+    pagination: {
+      currentPage,
+      endItem,
+      hasNextPage,
+      hasPreviousPage,
+      nextHref: hasNextPage ? createPaginationHref(pagePath, currentPage + 1) : "",
+      pagePath,
+      pageSize: PAGINATION_PAGE_SIZE,
+      previousHref: hasPreviousPage ? createPaginationHref(pagePath, currentPage - 1) : "",
+      startItem,
+      totalItems,
+      totalPages,
+    },
+  };
+}
+
+export function parsePaginationPage(query: URLSearchParams): number {
+  const rawPage = query.get(PAGE_QUERY_PARAMETER);
+
+  if (!rawPage) {
+    return 1;
+  }
+
+  const page = Number.parseInt(rawPage, 10);
+
+  if (!Number.isSafeInteger(page) || page < 1) {
+    return 1;
+  }
+
+  return page;
+}
+
+export function createPaginationHref(pagePath: string, page: number): string {
+  if (page <= 1) {
+    return pagePath;
+  }
+
+  return `${pagePath}?${PAGE_QUERY_PARAMETER}=${String(page)}`;
 }
 
 async function serveStaticFile(path: string): Promise<BentoResponse> {

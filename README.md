@@ -2,8 +2,6 @@
 
 BentoS3 is a lightweight, S3-compatible API server for local development, automated testing, and CI environments.
 
-> **Status:** BentoS3 is under active development and is not considered stable yet. APIs and behavior may change between releases until the project reaches a stable version.
-
 It is designed as both:
 
 - A standalone CLI-bootable S3-compatible server.
@@ -27,7 +25,7 @@ import { BentoS3, MemoryAuthStore } from "bento-s3";
 
 ## Goals
 
-- Support a practical subset of the S3 REST API.
+- Support a practical subset of the S3 HTTP API.
 - Work with the official AWS SDK for JavaScript.
 - Persist buckets and objects to the local filesystem.
 - Provide a framework-neutral core that can be embedded in any Node.js HTTP stack.
@@ -41,7 +39,6 @@ import { BentoS3, MemoryAuthStore } from "bento-s3";
 - Full S3 feature parity.
 - Distributed storage.
 - Replication, lifecycle policies, object lock, ACLs, or bucket policies.
-- Mandatory dependency on a specific HTTP framework.
 
 ## Usage
 
@@ -131,11 +128,18 @@ On first start, `bentos3 serve` bootstraps a default access key and prints the c
 
 ```ts
 import express from "express";
+import { MemoryAuthStore } from "bento-s3";
 import { BentoS3Core } from "bento-s3/core";
 import { expressAdapter } from "bento-s3/adapters/express";
 
 const app = express();
-const bento = new BentoS3Core();
+const authStore = new MemoryAuthStore();
+await authStore.createCredential({
+  accessKeyId: "test",
+  secretAccessKey: "test-secret",
+});
+
+const bento = new BentoS3Core({ authStore });
 
 app.use("/s3", expressAdapter(bento));
 ```
@@ -147,7 +151,10 @@ new S3Client({
   endpoint: "http://127.0.0.1:3000/s3",
   forcePathStyle: true,
   region: "us-east-1",
-  credentials,
+  credentials: {
+    accessKeyId: "test",
+    secretAccessKey: "test-secret",
+  },
 });
 ```
 
@@ -183,10 +190,17 @@ await app.register(fastifyBentoS3, {
 Fetch:
 
 ```ts
+import { BentoS3Core } from "bento-s3/core";
 import { handleFetchRequest } from "bento-s3/adapters/fetch";
+
+const bento = new BentoS3Core({
+  auth: { enabled: false },
+});
 
 const response = await handleFetchRequest(bento, request, { basePath: "/s3" });
 ```
+
+The Fetch adapter passes requests through the configured `BentoS3Core` auth behavior. Use signed requests with a configured auth store, or disable auth for unsigned local test requests.
 
 ### Body Parser Ordering
 

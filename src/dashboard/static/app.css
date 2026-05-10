@@ -328,6 +328,42 @@ a {
   margin: 0;
 }
 
+.pagination {
+  padding: 14px 20px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.pagination-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.pagination-jump {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-input {
+  width: 76px;
+  min-height: 38px;
+  border: 1px solid var(--line-strong);
+  background: #fff;
+  color: var(--text);
+  padding: 8px 10px;
+  font: inherit;
+}
+
+.button.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
 .stack {
   gap: 16px;
 }
@@ -433,6 +469,7 @@ a {
   .topbar-inner,
   .hero,
   .panel-title,
+  .pagination,
   .bucket-snapshot {
     display: grid;
     align-items: stretch;
@@ -441,6 +478,11 @@ a {
   .summary-list,
   .stats {
     grid-template-columns: 1fr;
+  }
+
+  .pagination-actions,
+  .pagination-jump {
+    flex-wrap: wrap;
   }
 
   .shell,
