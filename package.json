@@ -1,6 +1,6 @@
 {
   "name": "bento-s3",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "A lightweight S3-compatible API server for local development, automated testing, and CI environments.",
   "type": "module",
   "author": "gtindo",
